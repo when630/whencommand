@@ -1,0 +1,145 @@
+// main/platform/darwin.mjs — macOS. whennote에서 복사해 이 앱의 실측(03 §11, 2026-09-19)으로 고쳤다.
+//
+// 형제 앱이 "실기기에서 검증되지 않았다"고 남긴 셋 중 둘은 이 앱에서 검증됐다:
+//   ① globalShortcut.register()가 true면 실제로 눌린다 (⌘Space 16회·⌃⌥W 6회)           → 해소
+//   ③ app.dock.hide()로 Dock 아이콘이 빠진다 (isVisible=false)                          → 해소
+//   ② 미서명 앱의 setLoginItemSettings가 실제로 로그인 항목에 들어가는지 — 패키징본에서만 잴 수 있어
+//      **아직 실기기에서 검증되지 않았다**. 검증되면 이 줄과 platform.test의 해당 항목을 함께 지운다.
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFile, execFileSync } from 'node:child_process';
+import { app, nativeImage, shell } from 'electron';
+
+// Info.plist는 대개 바이너리라 plutil로 JSON을 받는다. 실패하면 null — 이름은 파일명으로 폴백한다.
+function readPlist(file) {
+  return new Promise((resolve) => {
+    execFile('plutil', ['-convert', 'json', '-o', '-', file], { encoding: 'utf8', timeout: 3000, maxBuffer: 4 * 1024 * 1024 }, (err, stdout) => {
+      if (err) return resolve(null);
+      try { resolve(JSON.parse(stdout)); } catch { resolve(null); }
+    });
+  });
+}
+
+export default {
+  name: 'darwin',
+
+  // 형제 앱은 두 OS에 같은 조합(Ctrl+Alt+글자)을 썼지만 이 앱만 OS 관례를 따른다(D-05) —
+  // 시리즈에서 가장 자주 누르는 키라 손이 이미 가 있는 자리가 이익이 크다. 대가는 Spotlight 충돌 안내(PLAT-03).
+  defaultHotkey: 'Command+Space',
+
+  // macOS 자동 업데이트는 **코드 서명이 필수**다(electron-builder 공식 문서 명시).
+  // Squirrel.Mac이 서명을 확인하고 거부하므로, 미서명 배포에서는 내려받아 설치하는
+  // 경로 자체가 없다. 새 버전을 알려 주고 받는 곳으로 보내는 것까지가 할 수 있는 전부다.
+  canAutoUpdate: false,
+
+  hotkeyLabel: (accel) =>
+    String(accel)
+      .replace(/\bControl\b/g, '⌃')
+      .replace(/\bAlt\b/g, '⌥')
+      .replace(/\bCommand\b|\bCmd\b/g, '⌘')
+      .replace(/\bShift\b/g, '⇧')
+      .replace(/\+/g, ''),
+
+  firstRunHint: (hotkeyLabel) => ({
+    title: 'WHENCOMMAND가 메뉴바에 있습니다',
+    body: `화면 위쪽 메뉴바 오른쪽에서 ⌘ 아이콘을 찾으세요. Dock에는 뜨지 않습니다. ${hotkeyLabel} 로 어디서든 부르세요.`,
+  }),
+
+  // ⌘Space를 Spotlight가 쥐고 있으면 **둘이 동시에 뜬다**(실측 #4) — 앱이 막을 수 없다.
+  // 시스템 설정의 심볼릭 핫키 64번(Spotlight 검색)을 읽어 켜져 있을 때만 안내한다(PLAT-03).
+  // 항목이 없으면 기본값(켜짐)이다. 읽기에 실패하면 모른다고 답한다 — 거짓으로 안심시키지 않는다.
+  hotkeyConflict(accel) {
+    if (accel !== 'Command+Space') return null;
+    try {
+      const out = execFileSync('defaults', ['read', 'com.apple.symbolichotkeys', 'AppleSymbolicHotKeys'], {
+        encoding: 'utf8',
+        timeout: 2000,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      const m = out.match(/\b64\s*=\s*\{\s*enabled\s*=\s*(\d)/);
+      const enabled = m ? m[1] === '1' : true;
+      return enabled ? { app: 'Spotlight', howTo: '시스템 설정 › 키보드 › 키보드 단축키 › Spotlight 에서 "Spotlight 검색 보기"를 끄세요' } : null;
+    } catch {
+      return { app: '알 수 없음', howTo: '눌렀을 때 다른 것이 함께 뜨면 그쪽 단축키를 끄세요' };
+    }
+  },
+
+  // 메뉴바 상주 — Dock 아이콘을 뺀다(PLAT-06). app.dock은 macOS에만 있고,
+  // 패키징 여부와 무관하게 whenReady 전에 불러도 된다. 패키징본은 LSUIElement로도 막는다(package.json).
+  prepareApp(app) {
+    app.dock?.hide();
+  },
+
+  // 실측 #7: Dock을 숨긴 액세서리 앱은 win.focus()만으로 앞으로 나오지 않는다.
+  // 사용자가 단축키로 부른 직후라면 app.focus({steal:true})가 활성화를 만든다(협력적 활성화 —
+  // 프로그램이 스스로 띄우면 안 된다). 숨길 때 app.hide()를 함께 불러야 직전 앱으로 돌아간다.
+  activate(win) {
+    app.focus({ steal: true });
+    win.focus();
+  },
+  deactivate(win) {
+    win.hide();
+    app.hide();
+  },
+
+  // macOS 메뉴바는 다크/라이트에 따라 아이콘 색이 뒤집혀야 한다. Template 이미지로
+  // 넘기면 OS가 알아서 칠한다 — 컬러 아이콘을 그대로 주면 다크 모드에서 뭉개진다.
+  // tray-Template.png가 있으면 그것을, 없으면 tray.png를 Template으로 표시한다.
+  trayImage(root) {
+    const tpl = path.join(root, 'build', 'tray-Template.png');
+    const p = fs.existsSync(tpl) ? tpl : path.join(root, 'build', 'tray.png');
+    if (!fs.existsSync(p)) return nativeImage.createEmpty();
+    const img = nativeImage.createFromBuffer(fs.readFileSync(p));
+    img.setTemplateImage(true);
+    return img;
+  },
+
+  // 설치된 앱 목록(LNCH-02). 실측 #10: 폴더 스캔은 1ms, 이름 읽기가 앱당 plutil 한 번(~4ms)이라 122개에 ~500ms —
+  // 그래서 시작 시 한 번만 부르고 캐시한다(LNCH-05). 8개씩 병렬로 돌려 ~100ms로 줄인다.
+  // 이름은 CFBundleDisplayName → CFBundleName → 파일명 순. 한국어 현지화 이름(ko.lproj/InfoPlist.strings)은 v1에서 읽지 않는다.
+  async listApps() {
+    const dirs = ['/Applications', '/System/Applications', '/System/Applications/Utilities', path.join(os.homedir(), 'Applications')];
+    const bundles = [];
+    for (const dir of dirs) {
+      let entries;
+      try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { continue; }
+      for (const e of entries) {
+        if (e.name.endsWith('.app')) bundles.push(path.join(dir, e.name));
+        else if (e.isDirectory() && dir === '/Applications') {
+          // 한 단계 아래(예: /Applications/Utilities)까지만 — 더 내려가면 헬퍼 앱이 섞인다
+          try { for (const f of fs.readdirSync(path.join(dir, e.name))) if (f.endsWith('.app')) bundles.push(path.join(dir, e.name, f)); } catch {}
+        }
+      }
+    }
+    const out = [];
+    let i = 0;
+    await Promise.all(Array.from({ length: 8 }, async () => {
+      while (i < bundles.length) {
+        const p = bundles[i++];
+        const info = await readPlist(path.join(p, 'Contents', 'Info.plist'));
+        if (info?.LSUIElement === true || info?.LSUIElement === '1' || info?.LSBackgroundOnly) continue; // 에이전트·백그라운드 앱은 목록에서 뺀다
+        out.push({ name: info?.CFBundleDisplayName || info?.CFBundleName || path.basename(p, '.app'), path: p, id: info?.CFBundleIdentifier ?? null });
+      }
+    }));
+    return out;
+  },
+
+  // 앱 실행(LNCH-01). LaunchServices가 이미 떠 있는 앱은 새로 띄우지 않고 앞으로 가져온다.
+  async openApp(p) {
+    const err = await shell.openPath(p);
+    return !err;
+  },
+
+  // 미서명 앱에서도 로그인 항목이 실제로 켜졌는지 **돌려받은 값으로 확인한다** —
+  // setLoginItemSettings는 실패해도 던지지 않는다. 호출부는 이 false를 보고
+  // 사용자에게 알린다(조용히 안 켜진 채로 두지 않는다).
+  setLoginItem(app, openAtLogin) {
+    app.setLoginItemSettings({ openAtLogin, args: [] });
+    return app.getLoginItemSettings().openAtLogin === openAtLogin;
+  },
+
+  getLoginItem(app) {
+    return app.getLoginItemSettings().openAtLogin;
+  },
+};

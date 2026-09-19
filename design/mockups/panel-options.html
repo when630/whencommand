@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>WHENCOMMAND — 입력줄 변형안</title>
+<style>
+/* ────────────────────────────────────────────────────────────
+   WHENCOMMAND 입력줄 변형안. 확정된 전제로만 그린다:
+     · 화면 위 28% 중앙, 순간적으로만 뜬다 (D-08)
+     · 결과는 종류가 섞여 한 목록에 온다 — 종류별 탭 없음 (SRCH-05)
+     · 각 줄에 출처가 드러나야 한다 (SRCH-06)
+     · 형제 앱이 하나도 없어도 온전해야 한다 (D-03)
+     · 최대 8줄 (PANEL-08)
+   토큰은 형제 앱 renderer/tokens.css 사본이다 — 단일 원본은 그쪽.
+   이 앱이 더하는 토큰은 없다 (PANEL-10).
+   ──────────────────────────────────────────────────────────── */
+@font-face {
+  font-family:'Pretendard Variable';
+  src: local('Pretendard Variable'), local('Pretendard');
+  font-weight:100 900; font-display:swap;
+}
+:root {
+  --bg-app:#16171c; --bg-raised:#1e2027; --bg-inset:#131419; --bg-hover:#262933;
+  --border:#2e323d; --border-focus:#7aa2f7;
+  --text-primary:#e6e8ee; --text-secondary:#a8afbd; --text-muted:#7b8294;
+  --accent:#7aa2f7; --accent-dim:rgba(122,162,247,.14);
+  --success:#9ece6a; --warning:#e0af68; --danger:#f7768e;
+
+  --font-sans:"Pretendard Variable","Pretendard","Malgun Gothic",system-ui,sans-serif;
+  --font-mono:"Cascadia Code","D2Coding",Consolas,monospace;
+  --fs-lg:16px; --fs-md:14px; --fs-sm:13px; --fs-xs:12px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px;
+  --r-sm:6px; --r-md:10px; --r-lg:14px; --r-xl:16px;
+  --shadow-pop:0 12px 40px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.35);
+
+  --ov-bg:rgba(22,23,28,.97);
+  --ov-border:1px solid rgba(255,255,255,.11);
+  --ov-shadow:0 18px 56px rgba(0,0,0,.62), 0 3px 12px rgba(0,0,0,.4);
+}
+* { box-sizing:border-box; margin:0; }
+body {
+  background:#0c0d11; color:var(--text-primary);
+  font-family:var(--font-sans); font-size:var(--fs-md); line-height:1.5;
+  padding:28px 22px 80px; -webkit-font-smoothing:antialiased;
+}
+.page { max-width:1500px; margin:0 auto; }
+h1 { font-size:20px; font-weight:650; letter-spacing:-.4px; margin-bottom:4px; }
+.lede { color:var(--text-muted); font-size:13px; line-height:1.75; margin-bottom:10px; max-width:1040px; }
+.lede b { color:var(--text-secondary); }
+.lede code { font-family:var(--font-mono); font-size:11.5px; color:var(--accent); }
+h2 { font-size:14.5px; font-weight:680; margin:34px 0 3px; padding-top:18px; border-top:1px solid var(--border); }
+h2 .n { font-family:var(--font-mono); font-size:11px; color:var(--accent);
+        background:var(--accent-dim); border-radius:4px; padding:1px 6px; margin-right:7px; }
+.sublede { color:var(--text-muted); font-size:12.5px; line-height:1.7; margin-bottom:18px; max-width:1040px; }
+.sublede b { color:var(--text-secondary); }
+.sublede code { font-family:var(--font-mono); font-size:11.5px; color:var(--accent); }
+
+.shelf { display:grid; grid-template-columns:repeat(auto-fit,minmax(560px,1fr)); gap:22px; }
+.shelf.one { grid-template-columns:1fr; max-width:760px; }
+.shelf.tight { grid-template-columns:repeat(auto-fit,minmax(470px,1fr)); gap:22px; }
+.mock { min-width:0; }
+.mock > .cap { display:flex; align-items:baseline; gap:8px; margin-bottom:7px; flex-wrap:wrap; }
+.mock > .cap b { font-size:13.5px; font-weight:650; }
+.mock > .cap .tag { font-size:10.5px; font-family:var(--font-mono); color:var(--text-muted);
+                    border:1px solid var(--border); border-radius:4px; padding:0 5px; flex:none; }
+.mock > .cap .rec { font-size:10.5px; font-family:var(--font-mono); color:var(--accent);
+                    background:var(--accent-dim); border-radius:4px; padding:0 5px; flex:none; }
+.mock > .cap span { font-size:11.5px; color:var(--text-muted); }
+.mock > .note { font-size:11.5px; color:var(--text-muted); line-height:1.7; margin-top:8px; }
+.mock > .note b { color:var(--text-secondary); font-weight:600; }
+.mock > .note .no { color:var(--danger); }
+.mock > .note .yes { color:var(--success); }
+.mock > .note code { font-family:var(--font-mono); font-size:11px; color:var(--accent); }
+
+/* 바탕 — 입력줄은 다른 창 위에서만 평가된다 */
+.desk { position:relative; border-radius:var(--r-lg); overflow:hidden;
+        border:1px solid var(--border); background:#11131a; user-select:none;
+        height:500px; display:flex; flex-direction:column; }
+.desk.sm { height:500px; }
+.desk.lg { height:560px; }
+.desk .bar-top { height:26px; background:#171a21; border-bottom:1px solid #22262f; flex:none;
+                 display:flex; align-items:center; gap:6px; padding:0 11px; }
+.desk .bar-top i { width:8px; height:8px; border-radius:99px; background:#2e323d; display:block; }
+.desk .bar-top span { font-family:var(--font-mono); font-size:9.5px; color:#3d4553; margin-left:8px; }
+.desk .code { font-family:var(--font-mono); font-size:10.5px; line-height:1.85;
+              color:#333a48; padding:13px 16px; white-space:pre; overflow:hidden; flex:1; }
+.desk .code .c { color:#262c36; } .desk .code .k { color:#4d5c78; } .desk .code .s { color:#3f5a47; }
+.desk::after { content:""; position:absolute; inset:0; pointer-events:none;
+               background:linear-gradient(to bottom,rgba(0,0,0,.18),rgba(0,0,0,.52)); }
+.layer { position:absolute; top:28%; left:0; right:0; pointer-events:none; z-index:2;
+         display:flex; justify-content:center; align-items:flex-start; }
+/* 28%는 화면 높이 기준이다(D-08) — padding %는 너비를 보므로 top으로 둔다 */
+
+/* ── 입력줄 패널 ───────────────────────────────────────── */
+.panel { width:100%; max-width:560px; background:var(--ov-bg); border:var(--ov-border);
+         border-radius:var(--r-lg); overflow:hidden; backdrop-filter:blur(30px);
+         box-shadow:var(--ov-shadow), inset 0 1px 0 rgba(255,255,255,.06); }
+.panel.narrow { max-width:470px; }
+.panel.wide { max-width:620px; }
+
+/* 입력 행 */
+.q { display:flex; align-items:center; gap:11px; padding:0 16px; height:54px; flex:none; }
+.q.sm { height:46px; }
+.q .gi { width:17px; height:17px; flex:none; color:var(--text-muted); }
+.q .gi svg { width:100%; height:100%; fill:none; stroke:currentColor; stroke-width:2;
+             stroke-linecap:round; stroke-linejoin:round; }
+.q .txt { flex:1; font-size:16.5px; letter-spacing:-.2px; color:var(--text-primary); min-width:0;
+          white-space:nowrap; overflow:hidden; }
+.q.sm .txt { font-size:15px; }
+.q .txt .ph { color:var(--text-muted); }
+.q .txt .car { display:inline-block; width:1.5px; height:17px; background:var(--accent);
+               vertical-align:-3px; margin-left:1px; }
+.q .hint { font-family:var(--font-mono); font-size:10px; color:var(--text-muted); flex:none; }
+
+.sep { height:1px; background:var(--border); }
+
+/* 결과 목록 */
+.list { padding:6px; display:flex; flex-direction:column; gap:1px; }
+.list.flush { padding:6px 6px 8px; }
+.row { display:flex; align-items:center; gap:11px; padding:0 10px; height:44px;
+       border-radius:var(--r-sm); flex:none; position:relative; }
+.row.sm { height:38px; }
+.row.sel, .calc.sel { background:var(--accent-dim); }
+/* 선택 표시 — 배경만으로는 바탕이 밝을 때 묻힌다. 2.5px 선을 왼쪽 여백 안에 둔다(내용은 안 밀린다) */
+.row.sel::before, .calc.sel::before { content:""; position:absolute; left:3px; top:9px; bottom:9px;
+       width:2.5px; border-radius:2px; background:var(--accent); }
+.ic { width:24px; height:24px; border-radius:6px; flex:none; display:grid; place-items:center;
+      font-size:11px; font-weight:700; color:#fff; letter-spacing:-.3px; }
+.ic.sq { border-radius:5px; }
+.ic.sm { width:20px; height:20px; font-size:9.5px; }
+.ic svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2;
+          stroke-linecap:round; stroke-linejoin:round; }
+.ic.ghost { background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); }
+
+.tx { min-width:0; flex:1; display:flex; flex-direction:column; gap:0px; }
+.tt { font-size:13.5px; font-weight:550; letter-spacing:-.15px; color:var(--text-primary);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tt em { font-style:normal; color:var(--accent); font-weight:700; }
+.sb { font-size:11px; color:var(--text-muted); white-space:nowrap; overflow:hidden;
+      text-overflow:ellipsis; line-height:1.35; }
+.tx.row2 { gap:1px; }
+
+/* 한 줄 안의 제목+부제 (인라인 배치안) */
+.tin { min-width:0; flex:1; display:flex; align-items:baseline; gap:8px; overflow:hidden; }
+.tin .sb { flex:none; }
+
+.chip { flex:none; font-size:10px; font-family:var(--font-mono); color:var(--text-muted);
+        background:var(--bg-inset); border:1px solid var(--border); border-radius:99px;
+        padding:1px 8px; display:inline-flex; align-items:center; gap:5px; }
+.chip .d { width:6px; height:6px; border-radius:99px; flex:none; background:var(--accent); }
+.chip.on { color:#8fa9d8; }
+.kb { flex:none; font-family:var(--font-mono); font-size:10px; background:var(--bg-inset);
+      border:1px solid var(--border); border-bottom-width:2px; border-radius:5px;
+      padding:1px 6px; color:var(--text-muted); line-height:1.4; }
+
+/* 섹션 머리 (구분안) */
+.gh { font-size:10px; font-family:var(--font-mono); color:var(--text-muted); letter-spacing:.3px;
+      padding:9px 11px 4px; text-transform:uppercase; }
+.gh.first { padding-top:5px; }
+
+/* 하단 바 */
+.foot { display:flex; align-items:center; gap:10px; padding:0 14px; height:34px;
+        border-top:1px solid var(--border); background:rgba(0,0,0,.18); flex:none; }
+.foot .bl { font-size:10.5px; color:var(--text-muted); display:flex; align-items:center; gap:5px; }
+.foot .sp { flex:1; }
+.foot .logo { font-size:10px; font-family:var(--font-mono); color:var(--text-muted); letter-spacing:.4px; }
+
+/* 계산 결과 큰 줄 */
+.calc { display:flex; align-items:center; gap:11px; padding:0 10px; height:56px; border-radius:var(--r-sm); position:relative; }
+.calc .big { font-size:21px; font-weight:640; letter-spacing:-.5px; color:var(--text-primary);
+             font-family:var(--font-mono); }
+.calc .eq { font-size:13px; color:var(--text-muted); font-family:var(--font-mono); }
+
+/* 안내 줄 */
+.info { display:flex; align-items:center; gap:9px; padding:11px 12px; font-size:11.5px;
+        color:var(--text-muted); line-height:1.6; }
+.info .dot { width:6px; height:6px; border-radius:99px; flex:none; }
+.empty { padding:26px 16px 30px; text-align:center; }
+.empty .t1 { font-size:13px; color:var(--text-secondary); margin-bottom:5px; }
+.empty .t2 { font-size:11.5px; color:var(--text-muted); line-height:1.7; }
+
+/* 아이콘 색 — 앱별 구분용 */
+.c-chrome { background:linear-gradient(140deg,#6ea8f0,#4a7fd0); }
+.c-code   { background:linear-gradient(140deg,#4d9de0,#2d6fb5); }
+.c-fig    { background:linear-gradient(140deg,#f2757a,#c9505f); }
+.c-slack  { background:linear-gradient(140deg,#b18bdc,#7d5aa8); }
+.c-term   { background:linear-gradient(140deg,#4a5260,#2f3540); }
+.c-note   { background:linear-gradient(140deg,#7aa2f7,#4e78c9); }
+.c-work   { background:linear-gradient(140deg,#9ece6a,#6fa246); }
+.c-cal    { background:linear-gradient(140deg,#e0af68,#b6833f); }
+.c-music  { background:linear-gradient(140deg,#bb9af7,#8b68c9); }
+.c-mail   { background:linear-gradient(140deg,#7dcfff,#3f9ecb); }
+.c-file   { background:var(--bg-inset); border:1px solid var(--border); color:var(--text-muted); }
+.c-scr    { background:linear-gradient(140deg,#3d4553,#2a303b); color:var(--success); }
+.c-calc   { background:var(--accent-dim); color:var(--accent); }
+
+table.spec { border-collapse:collapse; width:100%; max-width:1040px; font-size:12.5px; margin-top:4px; }
+table.spec th, table.spec td { text-align:left; vertical-align:top; padding:7px 12px 7px 0;
+                               border-bottom:1px solid var(--border); }
+table.spec th { color:var(--text-secondary); font-weight:640; font-size:11.5px; white-space:nowrap; }
+table.spec td { color:var(--text-muted); line-height:1.65; }
+table.spec td b { color:var(--text-secondary); font-weight:600; }
+table.spec code { font-family:var(--font-mono); font-size:11px; color:var(--accent); }
+kbd { font-family:var(--font-mono); font-size:10.5px; background:var(--bg-inset);
+      border:1px solid var(--border); border-bottom-width:2px; border-radius:5px;
+      padding:1px 6px; color:var(--text-secondary); line-height:1.4; }
+
+/* ── 확정 표시 ─────────────────────────────────────────── */
+.done { display:inline-block; font-size:10.5px; font-family:var(--font-mono); color:var(--success);
+        background:rgba(158,206,106,.13); border-radius:4px; padding:0 6px; margin-left:6px; vertical-align:1px; }
+
+/* ── 토스트 — 짧은 스크립트 출력 (EXT-04) */
+.toast { position:absolute; right:16px; top:14px; width:300px; z-index:3; background:var(--ov-bg); border:var(--ov-border);
+         border-radius:var(--r-md); box-shadow:var(--ov-shadow); padding:11px 13px; display:flex; gap:10px; align-items:flex-start; }
+.toast .ic { margin-top:1px; }
+.toast .t { font-size:12.5px; font-weight:600; color:var(--text-primary); }
+.toast .b { font-size:12px; color:var(--text-secondary); font-family:var(--font-mono); margin-top:3px; white-space:pre-wrap; }
+.toast .m { font-size:10.5px; color:var(--text-muted); margin-top:6px; display:flex; gap:8px; align-items:center; }
+
+/* ── 출력 영역 — 긴 출력·실패 */
+.out-head { display:flex; align-items:center; gap:9px; padding:8px 14px; font-size:11.5px; color:var(--text-secondary);
+            border-top:1px solid var(--border); }
+.out-head .st { font-family:var(--font-mono); font-size:10px; padding:0 6px; border-radius:4px; flex:none; }
+.out-head .st.ok { color:var(--success); background:rgba(158,206,106,.13); }
+.out-head .st.bad { color:var(--danger); background:rgba(247,118,142,.13); }
+.out-head .sp { flex:1; }
+.out { padding:10px 14px 12px; font-family:var(--font-mono); font-size:11px; line-height:1.7; color:var(--text-secondary);
+       white-space:pre; overflow:hidden; background:var(--bg-inset); border-top:1px solid var(--border); }
+.out .err { color:var(--danger); } .out .dim { color:var(--text-muted); } .out .ok { color:var(--success); }
+
+/* ── 설정 창 — 이 앱의 유일한 '창' */
+.win { width:100%; max-width:540px; background:var(--bg-app); border:1px solid var(--border); border-radius:var(--r-lg);
+       box-shadow:var(--shadow-pop); overflow:hidden; }
+.win .tb { height:38px; display:flex; align-items:center; padding:0 14px; gap:8px; border-bottom:1px solid var(--border); background:var(--bg-raised); }
+.win .tb .dots { display:flex; gap:6px; } .win .tb .dots i { width:11px; height:11px; border-radius:99px; display:block; background:var(--bg-hover); }
+.win .tb .ttl { flex:1; text-align:center; font-size:12.5px; font-weight:600; color:var(--text-secondary); margin-right:46px; }
+.win .body { padding:2px 0 10px; }
+.sec { padding:13px 16px 5px; font-size:10.5px; font-family:var(--font-mono); color:var(--text-muted); letter-spacing:.3px; }
+.opt { display:flex; align-items:center; gap:12px; padding:9px 16px; min-height:46px; }
+.opt + .opt { border-top:1px solid rgba(255,255,255,.04); }
+.opt .l { flex:1; min-width:0; }
+.opt .l .n { font-size:13px; color:var(--text-primary); }
+.opt .l .d { font-size:11px; color:var(--text-muted); margin-top:1px; line-height:1.5; }
+.opt .l .d.bad { color:var(--danger); } .opt .l .d.ok { color:var(--success); }
+.opt .l .d kbd { font-size:9.5px; padding:0 4px; }
+.tog { width:34px; height:20px; border-radius:99px; background:var(--bg-hover); border:1px solid var(--border); position:relative; flex:none; }
+.tog::after { content:""; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:99px; background:var(--text-muted); }
+.tog.on { background:var(--accent); border-color:var(--accent); } .tog.on::after { left:16px; background:#fff; }
+.btn { font-size:12px; color:var(--text-secondary); background:var(--bg-inset); border:1px solid var(--border); border-radius:var(--r-sm); padding:5px 11px; flex:none; }
+.btn.pri { color:var(--accent); background:var(--accent-dim); border-color:transparent; }
+.btn.dng { color:var(--danger); }
+.keyf { display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-size:12px; color:var(--text-primary);
+        background:var(--bg-inset); border:1px solid var(--border); border-radius:var(--r-sm); padding:5px 10px; flex:none; min-width:112px; justify-content:center; }
+.keyf.bad { border-color:var(--danger); }
+.keyf.rec { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); color:var(--text-muted); }
+
+/* 형제 앱 연동 목록 */
+.sib { display:flex; align-items:center; gap:10px; padding:7px 16px; font-size:12.5px; }
+.sib .ic { width:20px; height:20px; font-size:9.5px; }
+.sib .nm { flex:1; color:var(--text-primary); min-width:0; }
+.sib .nm small { display:block; font-size:10.5px; color:var(--text-muted); font-family:var(--font-mono); }
+.sib .cnt { font-size:11px; color:var(--text-muted); font-family:var(--font-mono); flex:none; }
+.sib .st { font-size:10px; font-family:var(--font-mono); padding:0 6px; border-radius:4px; flex:none; }
+.sib .st.ok { color:var(--success); background:rgba(158,206,106,.13); }
+.sib .st.gone { color:var(--text-muted); background:var(--bg-inset); border:1px solid var(--border); }
+.sib .st.bad { color:var(--danger); background:rgba(247,118,142,.13); }
+.sib.off .nm, .sib.off .ic { opacity:.45; }
+
+/* ── 트레이 메뉴 */
+.mbar { height:26px; background:rgba(30,32,39,.94); display:flex; align-items:center; justify-content:flex-end; gap:14px; padding:0 12px;
+        font-size:11px; color:var(--text-secondary); border-bottom:1px solid var(--border); flex:none; position:relative; z-index:3; }
+.mbar .app { font-weight:600; color:var(--text-primary); margin-right:auto; }
+.mbar .ti { width:15px; height:15px; border-radius:3px; display:grid; place-items:center; color:#fff; font-size:8px; font-weight:800; font-family:var(--font-mono); }
+.mbar .ti.on { background:var(--accent); box-shadow:0 0 0 2px rgba(255,255,255,.14); }
+.mbar .ti.sib { background:var(--border); color:var(--text-secondary); opacity:.8; }
+.tbar { position:absolute; bottom:0; left:0; right:0; height:32px; background:rgba(30,32,39,.96); border-top:1px solid var(--border);
+        display:flex; align-items:center; justify-content:flex-end; gap:12px; padding:0 12px; font-size:11px; color:var(--text-secondary); z-index:3; }
+.tbar .ti { width:15px; height:15px; border-radius:3px; display:grid; place-items:center; color:#fff; font-size:8px; font-weight:800; font-family:var(--font-mono); }
+.tbar .ti.on { background:var(--accent); box-shadow:0 0 0 2px rgba(255,255,255,.14); }
+.tbar .ti.sib { background:var(--border); color:var(--text-secondary); opacity:.8; }
+.tbar .caret { color:var(--text-muted); font-family:var(--font-mono); }
+.menu { position:absolute; width:226px; z-index:4; background:var(--ov-bg); border:var(--ov-border); border-radius:var(--r-md);
+        box-shadow:var(--ov-shadow); padding:5px; }
+.menu .mi { display:flex; align-items:center; gap:10px; padding:6px 10px; border-radius:var(--r-sm); font-size:12.5px; color:var(--text-primary); }
+.menu .mi .k { margin-left:auto; font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted); }
+.menu .mi.dim { color:var(--text-muted); }
+.menu .mi.hl { background:var(--accent-dim); }
+.menu .ms { height:1px; background:var(--border); margin:4px 8px; }
+.menu .mh { font-size:10px; font-family:var(--font-mono); color:var(--text-muted); padding:5px 10px 2px; letter-spacing:.3px; }
+
+/* ── 흐름 */
+.flow { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:18px; align-items:start; }
+.step { min-width:0; }
+.step .sh { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+.step .sh .no { width:20px; height:20px; border-radius:99px; background:var(--accent-dim); color:var(--accent); display:grid; place-items:center;
+                font-size:11px; font-weight:700; font-family:var(--font-mono); flex:none; }
+.step .sh b { font-size:12.5px; }
+.step .sh span { font-size:11px; color:var(--text-muted); }
+.step .note { font-size:11.5px; color:var(--text-muted); line-height:1.7; margin-top:8px; }
+.step .note b { color:var(--text-secondary); font-weight:600; }
+.step .note .no { color:var(--danger); }
+.step .note code { font-family:var(--font-mono); font-size:11px; color:var(--accent); }
+.hintline { display:flex; gap:9px; align-items:flex-start; padding:12px 14px 14px; font-size:11.5px; color:var(--text-muted); line-height:1.6; }
+.hintline .dot { width:6px; height:6px; border-radius:99px; background:var(--accent); flex:none; margin-top:6px; }
+.hintline b { color:var(--text-secondary); }
+.upd { display:flex; align-items:center; gap:11px; padding:12px 14px; }
+.upd .l { flex:1; min-width:0; }
+.upd .l .n { font-size:12.5px; color:var(--text-primary); font-weight:600; }
+.upd .l .d { font-size:11px; color:var(--text-muted); margin-top:1px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>WHENCOMMAND — 입력줄 변형안</h1>
+<p class="lede">
+  확정된 전제로만 그렸다. <b>화면 위 28% 중앙</b>(<a style="color:var(--accent)" href="../../docs/03_기술_스펙.md">D-08</a>) ·
+  결과는 <b>종류가 섞여 한 목록</b>에 오고 종류별 탭을 두지 않는다(SRCH-05) ·
+  각 줄에 <b>출처가 드러난다</b>(SRCH-06) · 최대 <b>8줄</b>(PANEL-08) ·
+  <b>형제 앱이 하나도 없어도 온전하다</b>(D-03).
+  토큰은 형제 앱 <code>renderer/tokens.css</code> 사본이고 <b>이 앱이 더하는 토큰은 없다</b>(PANEL-10).
+</p>
+<p class="lede">
+  비교용 질의는 전부 <code>노트</code>다 — 앱·형제 앱 명령·파일이 한 번에 걸리는 말이라 배치 차이가 드러난다.
+</p>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2><span class="n">0</span>확정 — ㉤ 출처 칩<span class="done">2026-09-19</span></h2>
+<p class="sublede">
+  §1의 다섯 안 중 <b>㉤ 출처 칩</b>을 채택했다 — 행 <code>40px</code> · 폭 <code>560px</code> · 최대 8줄 · 하단 바 <code>34px</code>.
+  출처는 오른쪽 끝 알약으로 세우고 형제 앱만 파란 색점. ㉣(종류별 머리글)은 순위를 종류에 종속시켜 <b>탈락</b>.
+  아래 §5~§8의 새 화면은 전부 이 안 위에 그렸다. 결정은 <a style="color:var(--accent)" href="../../docs/03_기술_스펙.md">03 §10 D-15</a>.
+</p>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2><span class="n">1</span>패널 변형 5종</h2>
+<p class="sublede">
+  같은 결과를 다섯 가지로 담았다. 차이는 <b>한 줄에 얼마를 싣는가</b>와 <b>출처를 어떻게 드러내는가</b> 둘뿐이다.
+</p>
+
+<div class="shelf">
+
+  <!-- ㉠ -->
+  <div class="mock">
+    <div class="cap"><b>㉠ 두 줄 행</b><span class="tag">행 44px · 8줄 = 406px</span>
+      <span>Raycast 방식. 제목 아래 부제를 깐다</span></div>
+    <div class="desk">
+      <div class="bar-top"><i></i><i></i><i></i><span>lifecycle.mjs — whencommand</span></div>
+      <div class="code"><span class="c">// 창을 미리 만들어 숨겨 둔다 (D-06)</span>
+<span class="k">const</span> panel = <span class="k">new</span> BrowserWindow({
+  width: <span class="s">560</span>, frame: <span class="k">false</span>,
+  transparent: <span class="k">true</span>, show: <span class="k">false</span>,
+  skipTaskbar: <span class="k">true</span>,
+});
+panel.setAlwaysOnTop(<span class="k">true</span>, <span class="s">'screen-saver'</span>);</div>
+      <div class="layer"><div class="panel">
+        <div class="q">
+          <span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+          <span class="txt">노트<span class="car"></span></span>
+          <span class="hint">5개</span>
+        </div>
+        <div class="sep"></div>
+        <div class="list">
+          <div class="row sel"><span class="ic c-note">N</span>
+            <span class="tx row2"><span class="tt">WHEN<em>NOTE</em></span><span class="sb">응용 프로그램 · 어제 12번 사용</span></span>
+            <span class="kb">↵</span></div>
+          <div class="row"><span class="ic c-note">N</span>
+            <span class="tx row2"><span class="tt">새 메모</span><span class="sb">WHENNOTE · whennote://new</span></span></div>
+          <div class="row"><span class="ic c-note">N</span>
+            <span class="tx row2"><span class="tt">메모 검색</span><span class="sb">WHENNOTE · whennote://search</span></span></div>
+          <div class="row"><span class="ic c-file">📄</span>
+            <span class="tx row2"><span class="tt">노트북 설정.md</span><span class="sb">~/Documents/setup/</span></span></div>
+          <div class="row"><span class="ic c-slack">No</span>
+            <span class="tx row2"><span class="tt">Notion</span><span class="sb">응용 프로그램</span></span></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="note"><b>좋은 점</b> 부제에 경로·딥링크가 다 들어가 모호함이 없다.
+      <b class="no">문제</b> 8줄이면 406px — 세로를 많이 먹는다. 그리고 <b>출처가 부제 안에 글자로 섞여</b> 훑을 때 안 보인다(SRCH-06 미달).</div>
+  </div>
+
+  <!-- ㉡ -->
+  <div class="mock">
+    <div class="cap"><b>㉡ 입력줄 분리</b><span class="tag">입력 54px + 목록 카드</span>
+      <span>Spotlight 방식. 두 덩어리로 띄운다</span></div>
+    <div class="desk">
+      <div class="bar-top"><i></i><i></i><i></i><span>lifecycle.mjs — whencommand</span></div>
+      <div class="code"><span class="c">// 창을 미리 만들어 숨겨 둔다 (D-06)</span>
+<span class="k">const</span> panel = <span class="k">new</span> BrowserWindow({
+  width: <span class="s">560</span>, frame: <span class="k">false</span>,
+  transparent: <span class="k">true</span>, show: <span class="k">false</span>,
+  skipTaskbar: <span class="k">true</span>,
+});
+panel.setAlwaysOnTop(<span class="k">true</span>, <span class="s">'screen-saver'</span>);</div>
+      <div class="layer"><div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="panel" style="width:560px">
+          <div class="q">
+            <span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+            <span class="txt">노트<span class="car"></span></span>
+          </div>
+        </div>
+        <div class="panel" style="width:560px">
+          <div class="list flush">
+            <div class="row sm sel"><span class="ic sm c-note">N</span><span class="tin"><span class="tt">WHEN<em>NOTE</em></span><span class="sb">응용 프로그램</span></span><span class="kb">↵</span></div>
+            <div class="row sm"><span class="ic sm c-note">N</span><span class="tin"><span class="tt">새 메모</span><span class="sb">WHENNOTE</span></span></div>
+            <div class="row sm"><span class="ic sm c-note">N</span><span class="tin"><span class="tt">메모 검색</span><span class="sb">WHENNOTE</span></span></div>
+            <div class="row sm"><span class="ic sm c-file">📄</span><span class="tin"><span class="tt">노트북 설정.md</span><span class="sb">~/Documents/setup</span></span></div>
+            <div class="row sm"><span class="ic sm c-slack">No</span><span class="tin"><span class="tt">Notion</span><span class="sb">응용 프로그램</span></span></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+    <div class="note"><b>좋은 점</b> 입력줄이 늘 같은 자리에 있어 <b>결과 개수가 변해도 눈이 안 흔들린다.</b>
+      <b class="no">문제</b> 창이 둘이라 <code>BrowserWindow</code>가 둘이고, 그림자도 둘이라 산만하다. 120ms 예산(PANEL-02)에 불리하다.</div>
+  </div>
+
+  <!-- ㉢ -->
+  <div class="mock">
+    <div class="cap"><b>㉢ 컴팩트 한 줄</b><span class="tag">행 38px · 8줄 = 334px</span>
+      <span>제목과 부제를 한 줄에 눕힌다</span></div>
+    <div class="desk sm">
+      <div class="bar-top"><i></i><i></i><i></i><span>lifecycle.mjs — whencommand</span></div>
+      <div class="code"><span class="c">// 창을 미리 만들어 숨겨 둔다 (D-06)</span>
+<span class="k">const</span> panel = <span class="k">new</span> BrowserWindow({
+  width: <span class="s">560</span>, frame: <span class="k">false</span>,
+  transparent: <span class="k">true</span>, show: <span class="k">false</span>,
+});</div>
+      <div class="layer"><div class="panel">
+        <div class="q sm">
+          <span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+          <span class="txt">노트<span class="car"></span></span>
+        </div>
+        <div class="sep"></div>
+        <div class="list">
+          <div class="row sm sel"><span class="ic sm c-note">N</span><span class="tin"><span class="tt">WHEN<em>NOTE</em></span><span class="sb">응용 프로그램</span></span><span class="kb">↵</span></div>
+          <div class="row sm"><span class="ic sm c-note">N</span><span class="tin"><span class="tt">새 메모</span><span class="sb">WHENNOTE</span></span></div>
+          <div class="row sm"><span class="ic sm c-note">N</span><span class="tin"><span class="tt">메모 검색</span><span class="sb">WHENNOTE</span></span></div>
+          <div class="row sm"><span class="ic sm c-file">📄</span><span class="tin"><span class="tt">노트북 설정.md</span><span class="sb">~/Documents/setup</span></span></div>
+          <div class="row sm"><span class="ic sm c-slack">No</span><span class="tin"><span class="tt">Notion</span><span class="sb">응용 프로그램</span></span></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="note"><b>좋은 점</b> 8줄이 334px로 ㉠보다 <b>72px 작다.</b> 순간적으로 뜨는 창에는 작을수록 좋다.
+      <b class="no">문제</b> 긴 파일 경로가 잘린다. 그리고 여전히 <b>출처가 회색 글자</b>라 훑기 어렵다.</div>
+  </div>
+
+  <!-- ㉣ -->
+  <div class="mock">
+    <div class="cap"><b>㉣ 종류별 머리글</b><span class="tag">머리글 + 38px 행</span>
+      <span>같은 종류끼리 묶어 머리글을 붙인다</span></div>
+    <div class="desk">
+      <div class="bar-top"><i></i><i></i><i></i><span>lifecycle.mjs — whencommand</span></div>
+      <div class="code"><span class="c">// 창을 미리 만들어 숨겨 둔다 (D-06)</span>
+<span class="k">const</span> panel = <span class="k">new</span> BrowserWindow({
+  width: <span class="s">560</span>, frame: <span class="k">false</span>,
+  transparent: <span class="k">true</span>, show: <span class="k">false</span>,
+  skipTaskbar: <span class="k">true</span>,
+});</div>
+      <div class="layer"><div class="panel">
+        <div class="q sm">
+          <span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+          <span class="txt">노트<span class="car"></span></span>
+        </div>
+        <div class="sep"></div>
+        <div class="list">
+          <div class="gh first">응용 프로그램</div>
+          <div class="row sm sel"><span class="ic sm c-note">N</span><span class="tin"><span class="tt">WHEN<em>NOTE</em></span></span><span class="kb">↵</span></div>
+          <div class="row sm"><span class="ic sm c-slack">No</span><span class="tin"><span class="tt">Notion</span></span></div>
+          <div class="gh">WHENNOTE 명령</div>
+          <div class="row sm"><span class="ic sm c-note">N</span><span class="tin"><span class="tt">새 메모</span></span></div>
+          <div class="row sm"><span class="ic sm c-note">N</span><span class="tin"><span class="tt">메모 검색</span></span></div>
+          <div class="gh">파일</div>
+          <div class="row sm"><span class="ic sm c-file">📄</span><span class="tin"><span class="tt">노트북 설정.md</span><span class="sb">~/Documents/setup</span></span></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="note"><b>좋은 점</b> 출처가 <b>가장 명확하다.</b>
+      <b class="no">치명적 문제</b> 머리글이 <b>순위를 종류에 종속시킨다</b> — frecency로 4위인 파일이 1위 앱보다 위로 올 수 없다(D-10 무력화).
+      게다가 느린 파일 검색이 늦게 도착하면(D-11) <b>목록이 통째로 재배치되어 튄다.</b> <span class="no">탈락.</span></div>
+  </div>
+
+</div>
+
+<!-- ㉤ 추천안 — 단독 -->
+<div class="shelf one" style="margin-top:22px">
+  <div class="mock">
+    <div class="cap"><b>㉤ 출처 칩</b><span class="rec">추천</span><span class="tag">행 40px · 8줄 = 356px</span>
+      <span>㉢의 조밀함에 출처를 <b>색점 달린 알약</b>으로 세운다</span></div>
+    <div class="desk lg">
+      <div class="bar-top"><i></i><i></i><i></i><span>lifecycle.mjs — whencommand</span></div>
+      <div class="code"><span class="c">// 창을 미리 만들어 숨겨 둔다 (D-06)</span>
+<span class="k">const</span> panel = <span class="k">new</span> BrowserWindow({
+  width: <span class="s">560</span>, frame: <span class="k">false</span>, transparent: <span class="k">true</span>,
+  show: <span class="k">false</span>, resizable: <span class="k">false</span>, skipTaskbar: <span class="k">true</span>,
+});
+panel.setAlwaysOnTop(<span class="k">true</span>, <span class="s">'screen-saver'</span>);
+panel.setVisibleOnAllWorkspaces(<span class="k">true</span>, { visibleOnFullScreen: <span class="k">true</span> });
+
+<span class="c">// 포커스 복귀 — 두 OS가 다르다 (PANEL-06)</span>
+platform.restoreFocus(panel);</div>
+      <div class="layer"><div class="panel">
+        <div class="q">
+          <span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+          <span class="txt">노트<span class="car"></span></span>
+          <span class="hint">5개</span>
+        </div>
+        <div class="sep"></div>
+        <div class="list">
+          <div class="row sel"><span class="ic c-note">N</span>
+            <span class="tin"><span class="tt">WHEN<em>NOTE</em></span></span>
+            <span class="chip"><span class="d" style="background:var(--text-muted)"></span>앱</span><span class="kb">↵</span></div>
+          <div class="row"><span class="ic c-note">N</span>
+            <span class="tin"><span class="tt">새 메모</span><span class="sb">제목 입력</span></span>
+            <span class="chip on"><span class="d"></span>WHENNOTE</span></div>
+          <div class="row"><span class="ic c-note">N</span>
+            <span class="tin"><span class="tt">메모 검색</span></span>
+            <span class="chip on"><span class="d"></span>WHENNOTE</span></div>
+          <div class="row"><span class="ic c-file">📄</span>
+            <span class="tin"><span class="tt">노트북 설정.md</span><span class="sb">~/Documents/setup</span></span>
+            <span class="chip"><span class="d" style="background:var(--text-muted)"></span>파일</span></div>
+          <div class="row"><span class="ic c-slack">No</span>
+            <span class="tin"><span class="tt">Notion</span></span>
+            <span class="chip"><span class="d" style="background:var(--text-muted)"></span>앱</span></div>
+        </div>
+        <div class="foot">
+          <span class="logo">WHENCOMMAND</span><span class="sp"></span>
+          <span class="bl"><kbd>↵</kbd> 실행</span>
+          <span class="bl"><kbd>⌘↵</kbd> 폴더 열기</span>
+          <span class="bl"><kbd>esc</kbd> 닫기</span>
+        </div>
+      </div></div>
+    </div>
+    <div class="note">
+      <b class="yes">채택 이유</b> 출처가 <b>오른쪽 끝에 세로로 정렬</b>돼 목록을 훑을 때 한 열로 읽힌다 — ㉣의 머리글과 같은 정보를 주면서
+      <b>순위를 종류에 묶지 않는다.</b> frecency가 정한 순서 그대로 둘 수 있고(D-10), 늦게 온 파일 결과가 끼어들어도 목록이 재배치되지 않는다(D-11).<br>
+      형제 앱 칩만 <b>파란 색점</b>을 달아 "다른 앱으로 넘어간다"를 표시하고, 앱·파일은 회색 점이다. 색점은 형제 앱 <code>tokens.css</code>의 <code>.chip .dot</code> 관례 그대로다.<br>
+      하단 바는 <b>맥락에 따라 바뀐다</b> — 파일 줄에서는 <kbd>⌘↵</kbd>가 "폴더 열기", 앱 줄에서는 사라진다.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2><span class="n">2</span>상태 8종 <span style="font-size:11.5px;color:var(--text-muted);font-weight:400">— ㉤ 채택안으로 그린다</span></h2>
+<p class="sublede">
+  입력줄은 대부분의 시간을 <b>검색 결과가 아닌 상태</b>로 보낸다. 빈 줄, 계산, 안내, 실패 —
+  이쪽이 어색하면 앱 전체가 어설퍼 보인다.
+</p>
+
+<div class="shelf tight">
+
+  <div class="mock">
+    <div class="cap"><b>① 빈 입력</b><span class="tag">SRCH-07</span><span>부르자마자 보이는 화면</span></div>
+    <div class="panel narrow">
+      <div class="q"><span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+        <span class="txt"><span class="car"></span><span class="ph" style="margin-left:2px">하려는 일을 적으세요</span></span></div>
+      <div class="sep"></div>
+      <div class="list">
+        <div class="gh first">자주 쓰는 것</div>
+        <div class="row sel"><span class="ic c-code">VS</span><span class="tin"><span class="tt">Visual Studio Code</span></span><span class="chip"><span class="d" style="background:var(--text-muted)"></span>앱</span><span class="kb">↵</span></div>
+        <div class="row"><span class="ic c-chrome">C</span><span class="tin"><span class="tt">Google Chrome</span></span><span class="chip"><span class="d" style="background:var(--text-muted)"></span>앱</span></div>
+        <div class="row"><span class="ic c-note">N</span><span class="tin"><span class="tt">새 메모</span></span><span class="chip on"><span class="d"></span>WHENNOTE</span></div>
+        <div class="row"><span class="ic c-term">&gt;_</span><span class="tin"><span class="tt">Terminal</span></span><span class="chip"><span class="d" style="background:var(--text-muted)"></span>앱</span></div>
+      </div>
+    </div>
+    <div class="note">빈 화면을 보여 주지 않는다. frecency 상위 4줄이면 충분하다 — 8줄을 다 채우면 <b>빈 줄이 목록처럼 보여</b> 오히려 무겁다.</div>
+  </div>
+
+  <div class="mock">
+    <div class="cap"><b>② 초성 검색</b><span class="tag">SRCH-01</span><span><code>ㅋㄹ</code> 두 글자</span></div>
+    <div class="panel narrow">
+      <div class="q"><span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+        <span class="txt">ㅋㄹ<span class="car"></span></span><span class="hint">3개</span></div>
+      <div class="sep"></div>
+      <div class="list">
+        <div class="row sel"><span class="ic c-chrome">C</span><span class="tin"><span class="tt"><em>크롬</em></span><span class="sb">Google Chrome</span></span><span class="chip"><span class="d" style="background:var(--text-muted)"></span>앱</span><span class="kb">↵</span></div>
+        <div class="row"><span class="ic c-file">📄</span><span class="tin"><span class="tt"><em>클라</em>이언트 목록.xlsx</span><span class="sb">~/Downloads</span></span><span class="chip"><span class="d" style="background:var(--text-muted)"></span>파일</span></div>
+        <div class="row"><span class="ic c-scr">$</span><span class="tin"><span class="tt"><em>캐시</em> 비우기</span></span><span class="chip"><span class="d" style="background:var(--success)"></span>스크립트</span></div>
+      </div>
+    </div>
+    <div class="note">매칭된 초성 자리를 <b class="yes">강조색</b>으로 되짚어 준다 — 왜 이게 걸렸는지 설명 없이 보인다. 스크립트 칩만 <b>초록 점</b>이다(내 컴퓨터에서 뭔가 실행된다는 신호).</div>
+  </div>
+
+  <div class="mock">
+    <div class="cap"><b>③ 계산</b><span class="tag">CALC-01·02</span><span>수식이면 첫 줄이 답</span></div>
+    <div class="panel narrow">
+      <div class="q"><span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+        <span class="txt">1920*0.28<span class="car"></span></span></div>
+      <div class="sep"></div>
+      <div class="list">
+        <div class="calc sel"><span class="ic c-calc">=</span>
+          <span class="tx"><span class="big">537.6</span></span>
+          <span class="chip"><span class="d" style="background:var(--text-muted)"></span>복사</span><span class="kb">↵</span></div>
+      </div>
+    </div>
+    <div class="note">답이 <b>본문 글꼴이 아니라 고정폭 21px</b>이다 — 검색 결과가 아니라 값이라는 걸 크기로 말한다. <kbd>↵</kbd>는 실행이 아니라 <b>복사</b>고, 칩이 그 사실을 적는다.</div>
+  </div>
+
+  <div class="mock">
+    <div class="cap"><b>④ 단위 변환</b><span class="tag">CALC-03</span><span>자연어 한 줄</span></div>
+    <div class="panel narrow">
+      <div class="q"><span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+        <span class="txt">3.5kg to lb<span class="car"></span></span></div>
+      <div class="sep"></div>
+      <div class="list">
+        <div class="calc sel"><span class="ic c-calc">=</span>
+          <span class="tx"><span class="big">7.716 lb</span><span class="eq">3.5 kg</span></span>
+          <span class="chip"><span class="d" style="background:var(--text-muted)"></span>복사</span><span class="kb">↵</span></div>
+      </div>
+    </div>
+    <div class="note">원래 값을 작게 함께 둔다 — 단위를 잘못 읽었을 때 <b>되짚을 근거</b>가 화면에 남아 있어야 한다.</div>
+  </div>
+
+  <div class="mock">
+    <div class="cap"><b>⑤ 인자를 받는 명령</b><span class="tag">LINK-03</span><span>형제 앱으로 값을 넘긴다</span></div>
+    <div class="panel narrow">
+      <div class="q"><span class="gi" style="color:var(--accent)"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h7"/></svg></span>
+        <span class="txt"><span style="color:var(--accent);font-weight:600">새 메모</span> <span style="color:var(--text-muted)">›</span> 회의록 9/19<span class="car"></span></span></div>
+      <div class="sep"></div>
+      <div class="list">
+        <div class="row sel"><span class="ic c-note">N</span>
+          <span class="tin"><span class="tt">“회의록 9/19” 로 메모 만들기</span></span>
+          <span class="chip on"><span class="d"></span>WHENNOTE</span><span class="kb">↵</span></div>
+      </div>
+      <div class="foot"><span class="logo">whennote://new?title=…</span><span class="sp"></span><span class="bl"><kbd>⌫</kbd> 명령 취소</span></div>
+    </div>
+    <div class="note">명령을 고르면 <b>입력줄 안에 파란 이름표로 남고</b> 그 뒤가 인자 입력이 된다. 창이 바뀌지 않는다 — 여전히 한 줄이다. 하단에 실제로 날아갈 딥링크를 적어 <b>무슨 일이 일어날지 숨기지 않는다.</b></div>
+  </div>
+
+  <div class="mock">
+    <div class="cap"><b>⑥ 느린 결과 합류</b><span class="tag">D-11 · SRCH-08</span><span>파일 검색은 늦게 온다</span></div>
+    <div class="panel narrow">
+      <div class="q"><span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+        <span class="txt">회의<span class="car"></span></span>
+        <span class="hint" style="color:var(--accent)">파일 찾는 중…</span></div>
+      <div class="sep"></div>
+      <div class="list">
+        <div class="row sel"><span class="ic c-note">N</span><span class="tin"><span class="tt">메모 검색: <em>회의</em></span></span><span class="chip on"><span class="d"></span>WHENNOTE</span><span class="kb">↵</span></div>
+        <div class="row"><span class="ic c-work">W</span><span class="tin"><span class="tt">할 일 추가: <em>회의</em></span></span><span class="chip on"><span class="d"></span>WHENWORK</span></div>
+        <div class="row"><span class="ic c-scr">$</span><span class="tin"><span class="tt"><em>회의</em>실 예약</span></span><span class="chip"><span class="d" style="background:var(--success)"></span>스크립트</span></div>
+      </div>
+    </div>
+    <div class="note">빠른 공급원이 먼저 그려지고 <b>오른쪽 위에 진행 표시만</b> 둔다. 스피너를 목록 안에 넣으면 줄이 밀려 <b>이미 겨눈 항목이 움직인다</b> — 그건 금지다(D-11).</div>
+  </div>
+
+  <div class="mock">
+    <div class="cap"><b>⑦ 결과 없음</b><span class="tag">—</span><span>막다른 길을 만들지 않는다</span></div>
+    <div class="panel narrow">
+      <div class="q"><span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+        <span class="txt">ㅁㄴㅇㄹ<span class="car"></span></span></div>
+      <div class="sep"></div>
+      <div class="empty">
+        <div class="t1">찾은 것이 없습니다</div>
+        <div class="t2">스크립트를 만들어 이 말을 명령으로 쓸 수 있습니다<br>
+          <kbd>⌘↵</kbd> 스크립트 폴더 열기</div>
+      </div>
+    </div>
+    <div class="note">빈 결과를 <b>확장 지점으로 돌린다</b>(EXT-06). "없습니다"로 끝나면 사용자가 배울 게 없고, 이 앱에서 스크립트는 <b>유일한 확장 수단</b>이라 여기서 알려 주는 게 맞다.</div>
+  </div>
+
+  <div class="mock">
+    <div class="cap"><b>⑧ OS 인덱스 못 씀</b><span class="tag">FILE-05</span><span>조용히 0개로 두지 않는다</span></div>
+    <div class="panel narrow">
+      <div class="q"><span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+        <span class="txt">설정<span class="car"></span></span><span class="hint">2개</span></div>
+      <div class="sep"></div>
+      <div class="list">
+        <div class="row sel"><span class="ic c-code">VS</span><span class="tin"><span class="tt">Visual Studio Code — <em>설정</em></span></span><span class="chip"><span class="d" style="background:var(--text-muted)"></span>앱</span><span class="kb">↵</span></div>
+        <div class="row"><span class="ic c-scr">$</span><span class="tin"><span class="tt">dotfiles <em>설정</em> 동기화</span></span><span class="chip"><span class="d" style="background:var(--success)"></span>스크립트</span></div>
+      </div>
+      <div class="sep"></div>
+      <div class="info"><span class="dot" style="background:var(--warning)"></span>
+        <span>Spotlight 색인이 꺼져 있어 <b style="color:var(--text-secondary)">파일은 찾지 못합니다.</b>
+          시스템 설정 › Siri 및 Spotlight 에서 켤 수 있습니다.</span></div>
+    </div>
+    <div class="note">경고를 <b>목록이 아니라 목록 아래 띠</b>로 둔다 — 결과 한 줄을 차지하면 순위 계산에 끼어들고, 매번 첫 줄을 밀어낸다. 색은 <code>--warning</code>, 형제 앱과 같은 어법이다.</div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2><span class="n">3</span>형제 앱이 있을 때와 없을 때 <span style="font-size:11.5px;color:var(--text-muted);font-weight:400">— D-03 검증</span></h2>
+<p class="sublede">
+  이 앱의 가장 중요한 제약이다. <b>형제 앱을 하나도 안 깔아도 온전해야 하고, 형제 앱은 이 앱이 없어도 그대로여야 한다.</b>
+  두 화면을 나란히 두고 오른쪽이 초라해 보이면 설계가 틀린 것이다.
+</p>
+
+<div class="shelf">
+
+  <div class="mock">
+    <div class="cap"><b>다섯 앱 전부 설치</b><span class="tag">~/.when/apps/ 5개</span></div>
+    <div class="panel wide">
+      <div class="q"><span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+        <span class="txt"><span class="car"></span><span class="ph" style="margin-left:2px">하려는 일을 적으세요</span></span></div>
+      <div class="sep"></div>
+      <div class="list">
+        <div class="gh first">자주 쓰는 것</div>
+        <div class="row sel"><span class="ic c-note">N</span><span class="tin"><span class="tt">새 메모</span></span><span class="chip on"><span class="d"></span>WHENNOTE</span><span class="kb">↵</span></div>
+        <div class="row"><span class="ic c-code">VS</span><span class="tin"><span class="tt">Visual Studio Code</span></span><span class="chip"><span class="d" style="background:var(--text-muted)"></span>앱</span></div>
+        <div class="row"><span class="ic c-work">W</span><span class="tin"><span class="tt">할 일 추가</span></span><span class="chip on"><span class="d"></span>WHENWORK</span></div>
+        <div class="row"><span class="ic c-music">M</span><span class="tin"><span class="tt">10초 되감기</span></span><span class="chip on"><span class="d"></span>WHENMUSIC</span></div>
+        <div class="row"><span class="ic c-chrome">C</span><span class="tin"><span class="tt">Google Chrome</span></span><span class="chip"><span class="d" style="background:var(--text-muted)"></span>앱</span></div>
+        <div class="row"><span class="ic c-cal">C</span><span class="tin"><span class="tt">다음 일정</span></span><span class="chip on"><span class="d"></span>WHENCALENDAR</span></div>
+      </div>
+      <div class="foot"><span class="logo">WHENCOMMAND</span><span class="sp"></span><span class="bl">형제 앱 5</span><span class="bl"><kbd>esc</kbd></span></div>
+    </div>
+    <div class="note">파란 점 달린 칩이 <b>다른 앱으로 넘어가는 줄</b>이다. 앱 실행과 형제 앱 명령이 <b>같은 목록에서 순위로 겨룬다</b> — 종류가 아니라 빈도가 순서를 정한다(D-10).
+      여기서 <b>단축키 7개를 외우던 문제가 사라진다</b> — <kbd>⌘Space</kbd> 하나로 전부 닿는다.</div>
+  </div>
+
+  <div class="mock">
+    <div class="cap"><b>형제 앱 0개</b><span class="tag">~/.when/ 없음</span><span>갓 설치한 사람</span></div>
+    <div class="panel wide">
+      <div class="q"><span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+        <span class="txt"><span class="car"></span><span class="ph" style="margin-left:2px">하려는 일을 적으세요</span></span></div>
+      <div class="sep"></div>
+      <div class="list">
+        <div class="gh first">자주 쓰는 것</div>
+        <div class="row sel"><span class="ic c-code">VS</span><span class="tin"><span class="tt">Visual Studio Code</span></span><span class="chip"><span class="d" style="background:var(--text-muted)"></span>앱</span><span class="kb">↵</span></div>
+        <div class="row"><span class="ic c-chrome">C</span><span class="tin"><span class="tt">Google Chrome</span></span><span class="chip"><span class="d" style="background:var(--text-muted)"></span>앱</span></div>
+        <div class="row"><span class="ic c-fig">F</span><span class="tin"><span class="tt">Figma</span></span><span class="chip"><span class="d" style="background:var(--text-muted)"></span>앱</span></div>
+        <div class="row"><span class="ic c-term">&gt;_</span><span class="tin"><span class="tt">Terminal</span></span><span class="chip"><span class="d" style="background:var(--text-muted)"></span>앱</span></div>
+        <div class="row"><span class="ic c-slack">S</span><span class="tin"><span class="tt">Slack</span></span><span class="chip"><span class="d" style="background:var(--text-muted)"></span>앱</span></div>
+        <div class="row"><span class="ic c-scr">$</span><span class="tin"><span class="tt">스크린샷 정리</span></span><span class="chip"><span class="d" style="background:var(--success)"></span>스크립트</span></div>
+      </div>
+      <div class="foot"><span class="logo">WHENCOMMAND</span><span class="sp"></span><span class="bl"><kbd>esc</kbd></span></div>
+    </div>
+    <div class="note">
+      <b class="yes">차이가 이것뿐이어야 한다</b> — 파란 칩 줄이 없고 하단의 "형제 앱 5"가 없다.
+      <b>안내도, 배너도, "형제 앱을 설치하세요"도 없다</b>(LINK-01). 권유가 뜨는 순간 이 앱은 시리즈의 광고판이 되고,
+      "골라서 설치한다"는 사용자의 선택을 되묻는 꼴이 된다.
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2><span class="n">4</span>두 OS</h2>
+<p class="sublede">
+  같은 앱이어야 한다(DONE-03). 다른 것은 <b>단축키 표기</b>와 <b>첫 실행 안내</b> 둘뿐이고, 나머지 픽셀은 같다.
+</p>
+
+<div class="shelf tight">
+  <div class="mock">
+    <div class="cap"><b>macOS</b><span class="tag">⌘Space</span><span>Spotlight를 꺼야 한다</span></div>
+    <div class="panel narrow">
+      <div class="q"><span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+        <span class="txt"><span class="car"></span><span class="ph" style="margin-left:2px">하려는 일을 적으세요</span></span></div>
+      <div class="sep"></div>
+      <div class="info"><span class="dot" style="background:var(--accent)"></span>
+        <span><b style="color:var(--text-secondary)">WHENCOMMAND가 메뉴바에 있습니다.</b> Dock에는 뜨지 않습니다.<br>
+          <kbd>⌘Space</kbd> 는 Spotlight가 쓰고 있습니다 — 시스템 설정 › 키보드 › 단축키 에서 끄면 이 앱이 받습니다.</span></div>
+      <div class="foot"><span class="logo">첫 실행 안내</span><span class="sp"></span><span class="bl"><kbd>↵</kbd> 설정 열기</span></div>
+    </div>
+    <div class="note">형제 앱 <code>darwin.mjs</code>의 <code>firstRunHint</code> 어법 그대로다 — <b>아이콘이 어디 있는지</b>가 먼저고, 그다음이 충돌 해결이다(PLAT-03).
+      <span class="no">주의</span> Spotlight 단축키는 앱이 대신 꺼 줄 수 없다(<a style="color:var(--accent)" href="../../docs/03_기술_스펙.md">오픈이슈 #3</a>).</div>
+  </div>
+
+  <div class="mock">
+    <div class="cap"><b>Windows</b><span class="tag">Alt+Space</span><span>창 시스템 메뉴와 겹친다</span></div>
+    <div class="panel narrow">
+      <div class="q"><span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+        <span class="txt"><span class="car"></span><span class="ph" style="margin-left:2px">하려는 일을 적으세요</span></span></div>
+      <div class="sep"></div>
+      <div class="info"><span class="dot" style="background:var(--accent)"></span>
+        <span><b style="color:var(--text-secondary)">WHENCOMMAND가 트레이에 있습니다.</b>
+          작업 표시줄 오른쪽 <b style="color:var(--text-secondary)">^</b> 를 눌러 아이콘을 찾고, 끌어다 고정하면 계속 보입니다.<br>
+          <kbd>Alt+Space</kbd> 로 어디서든 부르세요.</span></div>
+      <div class="foot"><span class="logo">첫 실행 안내</span><span class="sp"></span><span class="bl"><kbd>↵</kbd> 확인</span></div>
+    </div>
+    <div class="note">형제 앱 <code>win32.mjs</code>의 문장을 그대로 승계한다 — Windows 11이 새 트레이 아이콘을 숨김 영역에 넣어 <b>앱이 사라진 것처럼 보이는</b> 함정이 이미 기록돼 있다(PLAT-07).</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2><span class="n">5</span>스크립트 출력 <span style="font-size:11.5px;color:var(--text-muted);font-weight:400">— EXT-04·05</span></h2>
+<p class="sublede">
+  스크립트는 이 앱의 <b>유일한 확장 수단</b>이라 실행 뒤가 어설프면 확장 전체가 어설퍼 보인다.
+  출력 길이로 <b>토스트 · 결과 영역</b>을 가르고, 실패는 <b>절대 조용히 지나가지 않는다.</b>
+</p>
+<div class="shelf tight">
+
+  <div class="mock">
+    <div class="cap"><b>① 짧은 출력</b><span class="tag">≤ 3줄</span><span>입력줄은 이미 닫혔다</span></div>
+    <div class="desk sm">
+      <div class="bar-top"><i></i><i></i><i></i><span>terminal — zsh</span></div>
+      <div class="code"><span class="k">$</span> npm run build
+<span class="dim">vite v6.1.0 building for production...</span>
+<span class="s">✓</span> 214 modules transformed.
+<span class="dim">dist/index.html          0.46 kB</span>
+<span class="dim">dist/assets/index.js   142.10 kB</span>
+<span class="k">$</span> <span style="display:inline-block;width:6px;height:11px;background:#4d5c78;vertical-align:-1px"></span></div>
+      <div class="toast"><span class="ic c-scr">$</span>
+        <div style="min-width:0;flex:1">
+          <div class="t">내 IP</div>
+          <div class="b">192.168.0.12</div>
+          <div class="m"><span class="chip"><span class="d" style="background:var(--success)"></span>복사됨</span><span>0.1s</span></div>
+        </div></div>
+    </div>
+    <div class="note">세 줄 이하면 <b>OS 알림이 아니라 자체 토스트</b>다 — OS 알림은 권한을 묻고, 알림 센터에 쌓이고, 두 OS 모양이 다르다.
+      토스트는 우상단에 <b>4초</b> 머물고 사라진다. 한 줄 출력은 <b>자동으로 클립보드에</b> 들어간다(칩이 그 사실을 적는다).</div>
+  </div>
+
+  <div class="mock">
+    <div class="cap"><b>② 긴 출력</b><span class="tag">&gt; 3줄</span><span>입력줄이 아래로 자란다</span></div>
+    <div class="desk sm">
+      <div class="bar-top"><i></i><i></i><i></i><span>lifecycle.mjs — whencommand</span></div>
+      <div class="code"><span class="c">// 스크립트 실행 — sources/scripts.mjs</span>
+<span class="k">const</span> { code, stdout, stderr } = <span class="k">await</span> run(script);
+<span class="k">if</span> (lines(stdout) &lt;= <span class="s">3</span> &amp;&amp; code === <span class="s">0</span>) toast(stdout);
+<span class="k">else</span> panel.showOutput({ code, stdout, stderr });</div>
+      <div class="layer"><div class="panel">
+        <div class="q"><span class="gi" style="color:var(--success)"><svg viewBox="0 0 24 24"><path d="M4 17l6-5-6-5M12 19h8"/></svg></span>
+          <span class="txt"><span style="color:var(--success);font-weight:600">git 상태</span></span>
+          <span class="hint">완료 · 0.4s</span></div>
+        <div class="out-head"><span class="st ok">exit 0</span><span>12줄</span><span class="sp"></span>
+          <span class="kb">⌘C</span><span style="font-size:10.5px;color:var(--text-muted)">복사</span>
+          <span class="kb">↵</span><span style="font-size:10.5px;color:var(--text-muted)">다시 실행</span>
+          <span class="kb">esc</span></div>
+        <div class="out"><span class="dim">## main...origin/main [ahead 2]</span>
+<span class="ok"> M</span> main/lifecycle.mjs
+<span class="ok"> M</span> main/sources/scripts.mjs
+<span class="ok">A </span> main/sources/siblings.mjs
+<span class="err">??</span> test/manifest.test.mjs
+<span class="dim">
+2 commits ahead · 3 modified · 1 untracked</span></div>
+      </div></div>
+    </div>
+    <div class="note">입력줄 자리에 <b>스크립트 이름이 초록 이름표</b>로 남고(§2 ⑤의 파란 명령 이름표와 같은 어법), 아래가 고정폭 출력이 된다.
+      창이 새로 뜨지 않는다 — <b>여전히 같은 패널</b>이다. <kbd>↵</kbd>로 다시 실행, <kbd>esc</kbd>로 닫는다.</div>
+  </div>
+
+  <div class="mock">
+    <div class="cap"><b>③ 실패</b><span class="tag">exit ≠ 0</span><span>stderr를 그대로 보인다</span></div>
+    <div class="desk sm">
+      <div class="bar-top"><i></i><i></i><i></i><span>lifecycle.mjs — whencommand</span></div>
+      <div class="code"><span class="c">// 실패는 조용히 지나가지 않는다 (EXT-05)</span>
+<span class="k">if</span> (code !== <span class="s">0</span>) panel.showOutput({ code, stderr, failed: <span class="k">true</span> });</div>
+      <div class="layer"><div class="panel">
+        <div class="q"><span class="gi" style="color:var(--danger)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg></span>
+          <span class="txt"><span style="color:var(--danger);font-weight:600">배포</span></span>
+          <span class="hint" style="color:var(--danger)">실패 · 2.1s</span></div>
+        <div class="out-head"><span class="st bad">exit 1</span><span>stderr</span><span class="sp"></span>
+          <span class="kb">⌘C</span><span style="font-size:10.5px;color:var(--text-muted)">복사</span>
+          <span class="kb">⌘↵</span><span style="font-size:10.5px;color:var(--text-muted)">스크립트 열기</span>
+          <span class="kb">esc</span></div>
+        <div class="out"><span class="err">error:</span> failed to push some refs to 'origin'
+<span class="err">hint:</span> Updates were rejected because the remote
+<span class="err">hint:</span> contains work that you do not have locally.
+<span class="dim">
+~/.whencommand/scripts/deploy.sh:14</span></div>
+      </div></div>
+    </div>
+    <div class="note">이름표·진행 표시·상태 칩이 전부 <code>--danger</code>로 바뀌고, <b>stderr 원문</b>이 그대로 보인다 — 요약하지 않는다.
+      마지막 줄에 <b>스크립트 경로와 줄 번호</b>를 붙여 <kbd>⌘↵</kbd>로 바로 고치러 갈 수 있게 한다. <span class="no">이 화면이 없으면</span> 스크립트가 왜 안 되는지 터미널을 열어야 하고, 그 순간 이 앱은 쓸모가 없어진다.</div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2><span class="n">6</span>설정 <span style="font-size:11.5px;color:var(--text-muted);font-weight:400">— 이 앱의 유일한 '창'</span></h2>
+<p class="sublede">
+  입력줄은 순간적이어야 하므로 설정은 <b>별도 작은 창</b>이다(D-16). 트레이 메뉴나 입력줄에서 <code>설정</code>을 치면 뜬다.
+  형제 앱의 설정 탭과 같은 어법 — <b>실패는 돌려받은 값으로 확인하고 화면에 드러낸다</b>(PLAT-02·05).
+</p>
+<div class="shelf">
+
+  <div class="mock">
+    <div class="cap"><b>설정 창</b><span class="tag">540 × 자동</span><span>macOS · 형제 앱 둘 설치 상태</span></div>
+    <div class="win">
+      <div class="tb"><div class="dots"><i></i><i></i><i></i></div><div class="ttl">WHENCOMMAND 설정</div></div>
+      <div class="body">
+        <div class="sec">단축키</div>
+        <div class="opt"><div class="l"><div class="n">부르기</div><div class="d">어디서든 입력줄을 띄웁니다 · Spotlight가 쓰던 자리입니다</div></div><span class="keyf">⌘ Space</span></div>
+
+        <div class="sec">시작</div>
+        <div class="opt"><div class="l"><div class="n">로그인할 때 자동 실행</div><div class="d ok">켜져 있음 — 로그인 항목에서 확인됨</div></div><span class="tog on"></span></div>
+
+        <div class="sec">스크립트</div>
+        <div class="opt"><div class="l"><div class="n">스크립트 폴더</div><div class="d">~/.whencommand/scripts · 6개 · 상단 주석으로 이름·설명을 선언합니다</div></div><span class="btn">폴더 열기</span></div>
+
+        <div class="sec">형제 앱 — ~/.when/apps 를 자동으로 읽습니다</div>
+        <div class="sib"><span class="ic c-note">N</span><span class="nm">WHENNOTE</span><span class="cnt">2 명령</span><span class="st ok">연결됨</span></div>
+        <div class="sib"><span class="ic c-work">W</span><span class="nm">WHENWORK</span><span class="cnt">3 명령</span><span class="st ok">연결됨</span></div>
+        <div class="sib off"><span class="ic c-cal">C</span><span class="nm">WHENCALENDAR<small>매니페스트는 있으나 앱이 없음 · 목록에서 숨김</small></span><span class="st gone">설치 안 됨</span></div>
+        <div class="sib"><span class="ic c-mail">M</span><span class="nm">WHENMAIL<small>whenmail.json · "protocol" 필드 없음 · 이 파일만 건너뜀</small></span><span class="st bad">매니페스트 오류</span></div>
+
+        <div class="sec">데이터</div>
+        <div class="opt"><div class="l"><div class="n">설정 내보내기 · 가져오기</div><div class="d">랭킹은 담지 않습니다 — 기기마다 다른 데이터입니다</div></div><span class="btn">내보내기</span><span class="btn">가져오기</span></div>
+        <div class="opt"><div class="l"><div class="n">랭킹 초기화</div><div class="d">자주 쓰는 것이 처음 상태로 돌아갑니다. 되돌릴 수 없습니다</div></div><span class="btn dng">초기화</span></div>
+
+        <div class="sec">정보</div>
+        <div class="opt"><div class="l"><div class="n">WHENCOMMAND 0.1.0</div><div class="d">최신 버전입니다 · 오늘 14:02 확인</div></div><span class="btn">업데이트 확인</span></div>
+      </div>
+    </div>
+    <div class="note"><b>형제 앱 목록이 이 창의 핵심</b>이다 — 연동은 자동이라 사용자가 할 일은 없지만, <b>왜 어떤 명령이 안 보이는지</b>는 여기서만 알 수 있다.
+      네 가지 상태를 다 그렸다: 연결됨 · 설치 안 됨(LINK-04) · 매니페스트 오류(LINK-05) · 그리고 폴더 자체가 없으면 이 섹션이 <b>통째로 사라진다</b>(LINK-01).</div>
+  </div>
+
+  <div class="mock">
+    <div class="cap"><b>실패 상태 셋</b><span class="tag">PLAT-02 · PLAT-05</span><span>조용히 실패하지 않는다</span></div>
+
+    <div class="win" style="margin-bottom:14px"><div class="body" style="padding:2px 0 4px">
+      <div class="sec">단축키 — 바꾸는 중</div>
+      <div class="opt"><div class="l"><div class="n">부르기</div><div class="d">원하는 조합을 누르세요 · <kbd>esc</kbd> 취소</div></div><span class="keyf rec">키를 누르세요…</span></div>
+    </div></div>
+
+    <div class="win" style="margin-bottom:14px"><div class="body" style="padding:2px 0 4px">
+      <div class="sec">단축키 — 등록 실패</div>
+      <div class="opt"><div class="l"><div class="n">부르기</div><div class="d bad">⌥Space 를 등록하지 못했습니다 — 다른 앱이 이미 쓰고 있습니다. 조합을 바꾸세요</div></div><span class="keyf bad">⌥ Space</span></div>
+    </div></div>
+
+    <div class="win"><div class="body" style="padding:2px 0 4px">
+      <div class="sec">시작 — 켜지지 않음</div>
+      <div class="opt"><div class="l"><div class="n">로그인할 때 자동 실행</div><div class="d bad">켜지 못했습니다 — 미서명 앱은 시스템이 거부할 수 있습니다. 시스템 설정 › 로그인 항목에서 직접 추가하세요</div></div><span class="tog"></span></div>
+    </div></div>
+
+    <div class="note">형제 앱 <code>darwin.mjs</code>가 남긴 교훈 그대로다 — <code>setLoginItemSettings</code>는 실패해도 던지지 않고, <code>globalShortcut.register()</code>는 <code>true</code>를 돌려주고도 안 눌릴 수 있다.
+      그래서 둘 다 <b>돌려받은 값으로 다시 확인</b>하고, 어긋나면 토글을 되돌리고 이유를 적는다. 토글이 켜진 채 안 되는 것이 <span class="no">가장 나쁜 상태</span>다.</div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2><span class="n">7</span>트레이 메뉴</h2>
+<p class="sublede">
+  형제 앱 여섯이 전부 트레이에 산다. 이 앱의 메뉴는 <b>"부르기"가 첫 줄</b>이고 나머지는 입력줄로 못 하는 일만 둔다 — 항목이 늘면 입력줄로 옮길 게 있다는 신호다.
+</p>
+<div class="shelf">
+
+  <div class="mock">
+    <div class="cap"><b>macOS</b><span class="tag">메뉴바</span><span>Dock 없음 · 아이콘은 Template 이미지</span></div>
+    <div class="desk sm">
+      <div class="mbar"><span class="app">Code</span>
+        <span class="ti sib">N</span><span class="ti sib">W</span><span class="ti on">⌘</span>
+        <span>금 14:02</span></div>
+      <div class="code"><span class="c">// 트레이 — lifecycle.mjs</span>
+<span class="k">const</span> tray = <span class="k">new</span> Tray(platform.trayImage(root));
+tray.setContextMenu(Menu.buildFromTemplate(items));</div>
+      <div class="menu" style="top:32px;right:56px">
+        <div class="mi hl">부르기<span class="k">⌘Space</span></div>
+        <div class="ms"></div>
+        <div class="mi">앱 목록 새로고침</div>
+        <div class="mi">스크립트 폴더 열기</div>
+        <div class="mh">형제 앱 2</div>
+        <div class="mi dim">WHENNOTE<span class="k">2 명령</span></div>
+        <div class="mi dim">WHENWORK<span class="k">3 명령</span></div>
+        <div class="ms"></div>
+        <div class="mi">설정…<span class="k">⌘,</span></div>
+        <div class="mi">업데이트 확인</div>
+        <div class="ms"></div>
+        <div class="mi">WHENCOMMAND 종료<span class="k">⌘Q</span></div>
+      </div>
+    </div>
+    <div class="note">메뉴바에 <b>N · W · ⌘</b> 세 아이콘이 나란히 있다 — 시리즈를 다 깔면 여섯 개다. 이 앱 아이콘은 <b>⌘ 한 글자</b>로 두어 "부르는 키"를 아이콘이 말하게 한다(Windows는 <b>Alt</b>가 아니라 같은 ⌘ 모양을 쓴다 — 키가 아니라 <b>명령</b>의 기호로 읽힌다).
+      형제 앱 줄은 <b>읽기 전용</b>이다 — 눌러도 아무 일도 안 일어나고, 연결 상태를 보여 주기만 한다.</div>
+  </div>
+
+  <div class="mock">
+    <div class="cap"><b>Windows</b><span class="tag">트레이 · 우하단</span><span>새 아이콘은 숨김 영역(^)에 들어간다</span></div>
+    <div class="desk sm">
+      <div class="bar-top"><i></i><i></i><i></i><span>Code — whencommand</span></div>
+      <div class="code"><span class="c">// 트레이 — lifecycle.mjs</span>
+<span class="k">const</span> tray = <span class="k">new</span> Tray(platform.trayImage(root));
+tray.setContextMenu(Menu.buildFromTemplate(items));</div>
+      <div class="menu" style="bottom:40px;right:14px">
+        <div class="mi hl">부르기<span class="k">Alt+Space</span></div>
+        <div class="ms"></div>
+        <div class="mi">앱 목록 새로고침</div>
+        <div class="mi">스크립트 폴더 열기</div>
+        <div class="mh">형제 앱 2</div>
+        <div class="mi dim">WHENNOTE<span class="k">2 명령</span></div>
+        <div class="mi dim">WHENWORK<span class="k">3 명령</span></div>
+        <div class="ms"></div>
+        <div class="mi">설정…</div>
+        <div class="mi">업데이트 확인</div>
+        <div class="ms"></div>
+        <div class="mi">종료</div>
+      </div>
+      <div class="tbar"><span class="caret">^</span><span class="ti sib">N</span><span class="ti sib">W</span><span class="ti on">⌘</span><span>한</span><span>14:02</span></div>
+    </div>
+    <div class="note">항목은 macOS와 <b>같은 순서, 같은 글자</b>다. 다른 것은 단축키 표기(<code>Alt+Space</code>)와 <kbd>⌘,</kbd>·<kbd>⌘Q</kbd> 표기가 빠지는 것뿐.
+      Windows 11은 새 트레이 아이콘을 <b>^ 뒤에 숨긴다</b> — 첫 실행 안내(§8 ①)가 그 자리를 짚어 주는 이유다.</div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2><span class="n">8</span>첫 실행 흐름 <span style="font-size:11.5px;color:var(--text-muted);font-weight:400">— PLAT-03·07 · SRCH-07 · REL-02</span></h2>
+<p class="sublede">
+  설치 직후 <b>세 번의 만남</b>과, 며칠 뒤 <b>새 버전 알림</b>까지. 이 앱은 저장할 데이터가 없어서 첫 실행에 물을 것도 없다 — 안내만 하고 비켜선다.
+</p>
+<div class="flow">
+
+  <div class="step">
+    <div class="sh"><span class="no">1</span><b>앱이 뜬다</b><span>설치 직후 · 트레이 안내</span></div>
+    <div class="panel narrow">
+      <div class="hintline"><span class="dot"></span>
+        <span><b>WHENCOMMAND가 메뉴바에 있습니다.</b> Dock에는 뜨지 않습니다.<br>
+          <kbd>⌘Space</kbd> 로 어디서든 부르세요.</span></div>
+      <div class="foot"><span class="logo">첫 실행</span><span class="sp"></span><span class="bl"><kbd>↵</kbd> 확인</span></div>
+    </div>
+    <div class="note">형제 앱 <code>firstRunHint</code> 문장 구조 그대로 — <b>어디 있는지</b>가 먼저, <b>어떻게 부르는지</b>가 다음. Windows 문장은 §4에.</div>
+  </div>
+
+  <div class="step">
+    <div class="sh"><span class="no">2</span><b>단축키가 막혀 있다</b><span>macOS만 · Spotlight 감지</span></div>
+    <div class="panel narrow">
+      <div class="hintline"><span class="dot" style="background:var(--warning)"></span>
+        <span><b><kbd>⌘Space</kbd> 는 Spotlight가 쓰고 있습니다.</b><br>
+          시스템 설정 › 키보드 › 단축키 › Spotlight 에서 끄면 이 앱이 받습니다. 앱이 대신 꺼 드릴 수는 없습니다.</span></div>
+      <div class="foot"><span class="sp"></span>
+        <span class="btn">다른 키 쓰기</span><span class="btn pri">시스템 설정 열기</span></div>
+    </div>
+    <div class="note">등록이 실패했을 때만 뜬다 — 실측 #4에서 <b>가로챌 수 있다</b>고 나오면 이 화면은 없어진다. "다른 키 쓰기"는 설정의 녹음 상태(§6)로 간다.
+      <span class="no">거짓 성공</span>이 최악이다: <code>register()</code>가 <code>true</code>인데 안 눌리면 이 화면도 안 뜨고 앱은 죽은 듯 보인다 — 그래서 실측 #1이 먼저다.</div>
+  </div>
+
+  <div class="step">
+    <div class="sh"><span class="no">3</span><b>처음 부른다</b><span>고른 것이 아직 없다</span></div>
+    <div class="panel narrow">
+      <div class="q"><span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+        <span class="txt"><span class="car"></span><span class="ph" style="margin-left:2px">하려는 일을 적으세요</span></span></div>
+      <div class="sep"></div>
+      <div class="hintline"><span class="dot"></span>
+        <span>앱 이름을 <b>몇 글자만</b> — 초성도 됩니다(<code>ㅋㄹ</code> → 크롬). 수식을 치면 계산합니다.<br>
+          자주 고른 것이 여기 쌓입니다.</span></div>
+    </div>
+    <div class="note">SRCH-07은 "자주 쓰는 것"을 보이라 하지만 <b>첫 실행엔 고른 게 없다.</b> 빈 목록 대신 사용법 한 줄. 세 번 고르면 이 힌트는 사라지고 §2 ①이 된다.</div>
+  </div>
+
+  <div class="step">
+    <div class="sh"><span class="no">4</span><b>새 버전이 있다</b><span>REL-02 · 두 OS가 다르다</span></div>
+    <div class="panel narrow" style="margin-bottom:10px">
+      <div class="upd"><span class="ic c-calc" style="color:var(--accent)">↑</span>
+        <div class="l"><div class="n">WHENCOMMAND 0.2.0</div><div class="d">macOS · 미서명이라 자동 설치가 안 됩니다 — 받는 곳으로 안내합니다</div></div>
+        <span class="btn">나중에</span><span class="btn pri">받기</span></div>
+    </div>
+    <div class="panel narrow">
+      <div class="upd"><span class="ic c-calc" style="color:var(--success)">✓</span>
+        <div class="l"><div class="n">WHENCOMMAND 0.2.0 내려받음</div><div class="d">Windows · 다시 시작하면 설치됩니다</div></div>
+        <span class="btn">나중에</span><span class="btn pri">지금 다시 시작</span></div>
+    </div>
+    <div class="note">형제 앱 <code>canAutoUpdate</code> 분기 그대로 — macOS는 <b>알림까지</b>, Windows는 <b>설치까지</b>. 같은 카드 모양에 <b>버튼 글자만</b> 다르다.
+      부를 때만 뜨는 앱이라 이 카드는 <b>입력줄을 열었을 때 하단에</b> 한 번 붙고, "나중에"를 누르면 그날은 다시 안 뜬다.</div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2><span class="n">9</span>스펙 노트</h2>
+<table class="spec">
+  <tr><th>확정 사항</th>
+      <td><b>㉤ 출처 칩</b> — 행 <code>40px</code> · 폭 <code>560px</code> · 최대 8줄(<code>356px</code>) · 하단 바 <code>34px</code>.
+        출처는 <b>오른쪽 끝 알약</b>으로 세우고, 형제 앱만 <code>--accent</code> 색점, 스크립트는 <code>--success</code>, 앱·파일은 <code>--text-muted</code>.
+        <b>종류별 머리글(㉣)은 쓰지 않는다</b> — 순위를 종류에 종속시켜 D-10·D-11을 동시에 깬다.</td></tr>
+  <tr><th>토큰</th>
+      <td>형제 앱 <code>renderer/tokens.css</code>를 <b>그대로</b> 쓴다. 이 앱이 더하는 토큰은 <b>없다</b>(PANEL-10).
+        패널 배경만 <code>--ov-bg: rgba(22,23,28,.97)</code> 로 두어 WHENMUSIC 카드(<code>.96</code>)와 같은 계열을 유지한다.</td></tr>
+  <tr><th>순위 규칙</th>
+      <td>목록 순서는 <b>오직</b> <code>base × (1 + log1p(hits) × recency)</code> 가 정한다(D-10).
+        종류·출처·공급원 도착 순서 어느 것도 순서에 개입하지 않는다.</td></tr>
+  <tr><th>움직이지 않는 것</th>
+      <td>늦게 온 결과(D-11)는 <b>목록 끝에 붙고</b>, 이미 선택된 항목의 화면상 위치는 바뀌지 않는다.
+        진행 표시는 목록이 아니라 <b>입력 행 오른쪽</b>에 둔다.</td></tr>
+  <tr><th>빈 상태</th>
+      <td>빈 입력이면 frecency 상위 <b>4줄</b>(8줄 아님). 결과 0이면 <b>스크립트 폴더로 안내</b>한다 — 이 앱의 유일한 확장 지점이다.</td></tr>
+  <tr><th>형제 앱 0개</th>
+      <td>차이는 <b>파란 칩 줄이 없다</b>는 것뿐. 배너·권유·안내를 띄우지 않는다(D-03·LINK-01).</td></tr>
+  <tr><th>스크립트 출력</th>
+      <td>≤3줄이면 <b>자체 토스트</b>(OS 알림 아님) 우상단 4초, 한 줄이면 자동 복사. &gt;3줄이면 <b>같은 패널이 아래로 자라</b> 고정폭 출력.
+        실패는 이름표·상태·진행 표시가 전부 <code>--danger</code>, stderr 원문 + 경로:줄번호, <kbd>⌘↵</kbd>로 스크립트 열기.</td></tr>
+  <tr><th>설정</th>
+      <td><b>별도 작은 창</b> 540px(D-16). 섹션: 단축키 · 시작 · 스크립트 · 형제 앱 · 데이터 · 정보.
+        형제 앱 섹션은 네 상태(연결됨·설치 안 됨·매니페스트 오류·폴더 없음→섹션 숨김). 실패는 <b>토글을 되돌리고 이유를 적는다.</b></td></tr>
+  <tr><th>트레이</th>
+      <td>아이콘은 <b>⌘ 한 글자</b>(두 OS 동일). 첫 줄 "부르기", 형제 앱 줄은 읽기 전용. 항목 순서·글자는 두 OS 동일, 단축키 표기만 다름.</td></tr>
+  <tr><th>첫 실행</th>
+      <td>① 트레이 안내 → ② 단축키 충돌(등록 실패 시에만, macOS) → ③ 첫 입력줄은 "자주 쓰는 것" 대신 <b>사용법 힌트 한 줄</b>(세 번 고르면 사라짐).
+        새 버전 카드는 입력줄 하단에 하루 한 번, macOS "받기" / Windows "지금 다시 시작".</td></tr>
+  <tr><th>측정으로 정할 것</th>
+      <td><b>1)</b> 560px가 맞는 폭인지 — 긴 파일 경로가 잘리는 빈도를 2주 써 보고 정한다.
+        <b>2)</b> 행 40px에서 8줄이 실제로 한눈에 들어오는지, 6줄이 나은지.
+        <b>3)</b> <code>backdrop-filter: blur(30px)</code> 가 두 OS에서 같은 값으로 같아 보이는지 — WebView 렌더러가 다르다.
+        <b>4)</b> 하단 바가 <b>필요한지</b> — 34px을 쓸 만큼 자주 읽히는지, 아니면 첫 실행 이후 죽은 픽셀인지.
+        <b>5)</b> 토스트 4초가 맞는지 — IP 주소 한 줄을 읽고 붙일 시간으로 충분한지.
+        <b>6)</b> 메뉴바에 when 아이콘 여섯이 나란히 있을 때 <b>⌘ 아이콘이 구분되는지</b> — 안 되면 형제 앱과 모양 규칙을 맞춰야 한다.</td></tr>
+</table>
+
+<p class="lede" style="margin-top:26px">
+  다음 단계는 <b>측정</b>이다 — <a style="color:var(--accent)" href="../../docs/03_기술_스펙.md">03 §11 실측 로그</a>의 9개 항목이 비어 있고,
+  특히 <b>#4 <code>⌘Space</code>를 Spotlight보다 먼저 잡을 수 있는가</b>와 <b>#7 포커스 복귀</b>는
+  안 되면 이 시안 전체의 전제가 흔들린다.
+</p>
+
+</div>
+</body>
+</html>

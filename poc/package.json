@@ -1,0 +1,16 @@
+{
+  "name": "whencommand-poc",
+  "version": "0.0.1",
+  "private": true,
+  "description": "입력줄 실측 PoC — 03 §11의 빈칸을 채운다. 버릴 코드",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "login-item": "electron . --login-item",
+    "mdfind": "node bench-mdfind.js",
+    "apps": "node bench-apps.js"
+  },
+  "devDependencies": {
+    "electron": "^43.2.0"
+  }
+}

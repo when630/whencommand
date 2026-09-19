@@ -1,0 +1,5 @@
+node_modules/
+build/
+dist/
+poc/results.json
+.DS_Store

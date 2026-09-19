@@ -1,0 +1,49 @@
+{
+  "name": "whencommand",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "자기 명사를 갖지 않는 앱 — 단축키 한 번, 몇 글자로 앱·파일·형제 앱 명령에 닿는다",
+  "author": "when630 <70129021+when630@users.noreply.github.com>",
+  "main": "main/index.mjs",
+  "scripts": {
+    "start": "electron .",
+    "smoke": "electron . --smoke",
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "icons": "node tools/make-icon.mjs",
+    "postinstall": "node tools/make-icon.mjs",
+    "build": "electron-builder --win --publish never",
+    "build:mac": "electron-builder --mac --publish never",
+    "build:all": "electron-builder --win --mac --publish never"
+  },
+  "devDependencies": {
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
+  "build": {
+    "appId": "com.when630.whencommand",
+    "productName": "WHENCOMMAND",
+    "files": ["main/**/*", "renderer/**/*", "build/*.png"],
+    "artifactName": "WHENCOMMAND-${version}-${os}-${arch}.${ext}",
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "icon": "build/icon.png" },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "WHENCOMMAND"
+    },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }, { "target": "zip", "arch": ["arm64", "x64"] }],
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "extendInfo": { "LSUIElement": true }
+    },
+    "dmg": { "artifactName": "WHENCOMMAND-${version}-mac-${arch}.${ext}" },
+    "publish": [{ "provider": "github", "owner": "when630", "repo": "whencommand" }]
+  }
+}
