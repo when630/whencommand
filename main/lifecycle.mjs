@@ -105,6 +105,7 @@ function makeTray(ctx) {
           tray.setToolTip(`WHENCOMMAND — 앱 ${n}개`);
         },
       },
+      { label: '입력줄 위치 되돌리기', click: () => ctx.panel?.resetPosition() },
       { type: 'separator' },
       { label: 'WHENCOMMAND 종료', role: 'quit' },
     ]);
