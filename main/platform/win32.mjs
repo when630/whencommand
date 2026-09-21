@@ -5,8 +5,11 @@
 // 남은 미검증: 미서명 앱의 로그인 항목(#2)은 패키징 후에.
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFile, spawn } from 'node:child_process';
 import { nativeImage, shell } from 'electron';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 export default {
   name: 'win32',
@@ -117,6 +120,76 @@ export default {
     }
     if (ext === '.cmd' || ext === '.bat') return { cmd: 'cmd.exe', args: ['/d', '/s', '/c', `chcp 65001>nul & "${file}"`] };
     return null;
+  },
+
+  // 파일 검색(FILE-01, D-09) — Windows Search 색인을 ADODB로 읽는다. PowerShell 시작이 ~400ms라 **한 번 띄워 두고**
+  // stdin/stdout으로 질의한다(win32-search.ps1). 실측 2026-09-21: 질의 8~75ms. 서비스(WSearch)가 꺼져 있으면 Open이 던지고
+  // ready가 false로 온다 — 그 사실을 status()로 알려 한 줄 안내가 된다(FILE-05).
+  createFileSearch() {
+    const script = path.join(HERE, 'win32-search.ps1');
+    let child = null;
+    let buf = '';
+    let nextId = 1;
+    const pending = new Map();
+    let status = { ok: false, reason: '파일 검색을 아직 시작하지 않았습니다' };
+    let readyResolve = null;
+    const onLine = (line) => {
+      let msg;
+      try { msg = JSON.parse(line); } catch { return; }
+      if ('ready' in msg) {
+        status = msg.ready ? { ok: true } : { ok: false, reason: `Windows Search를 쓸 수 없습니다 — 서비스(WSearch)가 꺼져 있으면 파일 검색이 되지 않습니다 (${msg.error ?? ''})` };
+        readyResolve?.(status);
+        return;
+      }
+      const p = pending.get(String(msg.id));
+      if (!p) return;
+      pending.delete(String(msg.id));
+      const raw = Array.isArray(msg.items) ? msg.items : msg.items ? [msg.items] : [];
+      p(raw.filter((x) => x && x.p).map((x) => ({ name: x.n, path: x.p, isDir: !!x.d })));
+    };
+    return {
+      ready() {
+        return new Promise((resolve) => {
+          readyResolve = resolve;
+          try {
+            child = spawn('powershell', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script], { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] });
+          } catch (e) {
+            status = { ok: false, reason: `PowerShell을 띄우지 못했습니다 — ${e.message}` };
+            return resolve(status);
+          }
+          child.stdout.setEncoding('utf8');
+          child.stdout.on('data', (chunk) => {
+            buf += chunk;
+            let i;
+            while ((i = buf.indexOf('\n')) >= 0) {
+              const line = buf.slice(0, i).trim();
+              buf = buf.slice(i + 1);
+              if (line) onLine(line);
+            }
+          });
+          child.on('error', (e) => { status = { ok: false, reason: `PowerShell을 띄우지 못했습니다 — ${e.message}` }; resolve(status); });
+          child.on('exit', () => {
+            if (status.ok) status = { ok: false, reason: 'Windows Search 질의 프로세스가 끝났습니다 — 앱을 다시 시작하면 되살아납니다' };
+            for (const p of pending.values()) p([]);
+            pending.clear();
+            child = null;
+            resolve(status);
+          });
+        });
+      },
+      status: () => status,
+      query(q, limit = 30) {
+        if (!child || !status.ok) return Promise.resolve([]);
+        const id = String(nextId++);
+        return new Promise((resolve) => {
+          pending.set(id, resolve);
+          child.stdin.write(`${id}\t${limit}\t${Buffer.from(String(q), 'utf8').toString('base64')}\n`);
+        });
+      },
+      dispose() {
+        try { child?.stdin.end(); child?.kill(); } catch {}
+      },
+    };
   },
 
   // 첫 실행 때 폴더와 함께 만드는 예제(EXT-06). PowerShell 5.1은 BOM 없는 UTF-8을 cp949로 읽어 한글 주석이 깨지므로 BOM을 붙인다.

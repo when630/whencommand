@@ -3,8 +3,10 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('whencommand', {
   init: () => ipcRenderer.invoke('app:init'),
-  query: (q) => ipcRenderer.invoke('query:run', q),
+  query: (q, seq) => ipcRenderer.invoke('query:run', q, seq),
+  onMore: (cb) => ipcRenderer.on('query:more', (_e, r) => cb(r)), // 느린 공급원의 늦은 합류(D-11)
   run: (key) => ipcRenderer.invoke('item:run', key),
+  alt: (key) => ipcRenderer.invoke('item:alt', key), // ⌘·Ctrl+Enter — 보조 동작(파일이 든 폴더 열기 등)
   hide: () => ipcRenderer.send('win:hide'),
   resize: (h) => ipcRenderer.send('panel:resize', h),
   onShown: (cb) => ipcRenderer.on('panel:shown', () => cb()),

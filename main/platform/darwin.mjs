@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFile, execFileSync } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 import { app, nativeImage, shell } from 'electron';
 
 // Info.plist는 대개 바이너리라 plutil로 JSON을 받는다. 실패하면 null — 이름은 파일명으로 폴백한다.
@@ -140,6 +140,53 @@ export default {
     if (ext === '.bash') return { cmd: '/bin/bash', args: [file] };
     if (ext === '') return { cmd: file, args: [] };
     return null;
+  },
+
+  // 파일 검색(FILE-01, D-09) — Spotlight 색인을 mdfind로 읽는다. 실측 #8: 한글 2글자 첫 결과 150~200ms, 결과 1만 개짜리는
+  // -limit이 없어 첫 N줄만 읽고 죽인다. mdutil -s / 로 색인이 켜져 있는지 먼저 본다(FILE-05).
+  // ⚠ 2026-09-21 기준 Windows에서만 실기기 확인 — mdfind 쪽은 poc/bench-mdfind.js의 실측만 있고 이 구현은 미검증이다.
+  //   실측에서 `노트`가 0개였다 — 한글 NFC/NFD 정규화 문제일 수 있다(오픈이슈 #8).
+  createFileSearch() {
+    let status = { ok: false, reason: '파일 검색을 아직 시작하지 않았습니다' };
+    return {
+      async ready() {
+        try {
+          const out = execFileSync('mdutil', ['-s', '/'], { encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] });
+          status = /Indexing enabled/i.test(out)
+            ? { ok: true }
+            : { ok: false, reason: 'Spotlight 색인이 꺼져 있습니다 — 시스템 설정 › Siri 및 Spotlight에서 켜거나 `sudo mdutil -i on /`' };
+        } catch {
+          status = { ok: true }; // 상태를 못 읽으면 일단 시도한다 — 거짓으로 막지 않는다
+        }
+        return status;
+      },
+      status: () => status,
+      query(q, limit = 30) {
+        return new Promise((resolve) => {
+          const out = [];
+          let buf = '';
+          let done = false;
+          const finish = () => {
+            if (done) return;
+            done = true;
+            try { p.kill(); } catch {}
+            resolve(out.map((f) => ({ name: path.basename(f), path: f, isDir: null })));
+          };
+          const p = spawn('mdfind', ['-name', String(q)], { stdio: ['ignore', 'pipe', 'ignore'] });
+          p.stdout.setEncoding('utf8');
+          p.stdout.on('data', (d) => {
+            buf += d;
+            const lines = buf.split('\n');
+            buf = lines.pop();
+            for (const l of lines) if (l && out.length < limit) out.push(l);
+            if (out.length >= limit) finish();
+          });
+          p.on('close', () => { if (buf && out.length < limit) out.push(buf); finish(); });
+          p.on('error', finish);
+        });
+      },
+      dispose() {},
+    };
   },
 
   // 첫 실행 때 폴더와 함께 만드는 예제(EXT-06).

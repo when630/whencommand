@@ -52,6 +52,9 @@ body { padding: 28px; user-select: none; }             /* 28px = main/panel.mjs 
 .row.calc .tt { font-family: var(--font-mono); font-size: 21px; font-weight: 640; letter-spacing: -.5px; }
 .row.calc .sb { font-family: var(--font-mono); font-size: 13px; max-width: none; }
 .ic.scr { background: rgba(158,206,106,.16); color: var(--success); font-family: var(--font-mono); font-size: 12px; }
+.ic.file { background: var(--bg-inset); border: 1px solid var(--border); color: var(--text-secondary); font-family: var(--font-mono); font-size: 9px; font-weight: 600; letter-spacing: 0; }
+.ic.file.dir { color: var(--text-muted); font-size: 12px; }
+.notice { padding: 8px 16px 10px; font-size: 11px; color: var(--warning); line-height: 1.5; }
 /* 스크립트 출력 모드(시안 §5 ②·③, EXT-04·05) — 입력창 자리에 초록 이름표, 아래는 고정폭 출력. 실패면 --danger */
 .q .tag { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--success); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .panel.failed .q .tag, .panel.failed .q .hint { color: var(--danger); }

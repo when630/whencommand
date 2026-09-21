@@ -15,6 +15,7 @@ let items = [];
 let sel = 0;
 let seq = 0; // 늦게 도착한 응답을 버리기 위한 순번
 let out = null; // 출력 모드(EXT-04·05) — 스크립트 결과가 패널을 차지한다. null이면 보통의 입력 모드
+let lastResult = { empty: true }; // 늦은 합류(D-11)가 다시 그릴 때 쓰는 직전 응답의 부가 정보(notice 등)
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -30,6 +31,8 @@ function highlight(title, positions) {
 function avatar(it) {
   if (it.source === 'calc') return `<span class="ic calc">=</span>`;
   if (it.source === 'scripts') return `<span class="ic scr">${esc(it.icon || '$')}</span>`;
+  // 파일은 확장자, 폴더는 ▸ — 아이콘 추출(LNCH-04와 같은 이유)은 다음
+  if (it.source === 'files') return `<span class="ic file${it.kind === 'dir' ? ' dir' : ''}">${it.kind === 'dir' ? '▸' : esc((it.icon || '·').slice(0, 4))}</span>`;
   let h = 0;
   for (const c of it.title) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   const hue = h % 360;
@@ -40,6 +43,7 @@ function avatar(it) {
 const CHIP = { apps: ['앱', ''], calc: ['복사', ''], files: ['파일', ''], scripts: ['스크립트', 'scr'] };
 function chip(it) {
   if (it.source === 'sibling') return `<span class="chip sib"><span class="d"></span>${esc(it.app ?? '')}</span>`;
+  if (it.source === 'files' && it.kind === 'dir') return `<span class="chip"><span class="d"></span>폴더</span>`;
   const [label, cls] = CHIP[it.source] ?? [it.source, ''];
   return `<span class="chip ${cls}"><span class="d"></span>${esc(label)}</span>`;
 }
@@ -60,6 +64,8 @@ function render(result) {
   if (!result.empty) {
     if (items.length) $list.innerHTML = items.map(row).join('');
     else $extra.innerHTML = `<div class="empty"><div class="t1">찾은 것이 없습니다</div><div class="t2">앱 ${info.appCount}개에서 찾았습니다 · 초성·영문 자판 모두 봤습니다</div></div>`;
+    // 색인을 못 쓰면 그 사실을 한 줄로(FILE-05) — 조용히 결과 0으로 두지 않는다
+    if (result.notice) $extra.innerHTML += `<div class="notice">${esc(result.notice)}</div>`;
   }
   $hint.textContent = q && items.length ? `${items.length}개` : '';
   // 카드 높이를 메인에 알린다 — 남는 투명 영역이 아래 창의 클릭을 먹지 않게
@@ -70,11 +76,22 @@ async function query() {
   const my = ++seq;
   const q = $q.value;
   $hint.textContent = '';
-  const result = await window.whencommand.query(q);
+  const result = await window.whencommand.query(q, my);
   if (my !== seq) return; // 더 새 입력이 있었다
   items = result.items;
   sel = 0;
+  lastResult = result;
   render(result);
+}
+
+// 느린 공급원(파일)이 늦게 합류한다(D-11). 순번이 다르면 버린다. 선택은 **항목을 따라간다** — 고르고 있던 것이 밀려도 커서는 그 위에 남는다
+function more(r) {
+  if (r.seq !== seq || out) return;
+  const selKey = items[sel]?.key;
+  items = r.items;
+  const i = items.findIndex((it) => it.key === selKey);
+  sel = i >= 0 ? i : 0;
+  render(lastResult);
 }
 
 function move(d) {
@@ -84,10 +101,10 @@ function move(d) {
   $list.querySelector('.row.sel')?.scrollIntoView({ block: 'nearest' });
 }
 
-async function run(i = sel) {
+async function run(i = sel, alt = false) {
   const it = items[i];
   if (!it) return;
-  await window.whencommand.run(it.key);
+  await (alt ? window.whencommand.alt(it.key) : window.whencommand.run(it.key));
 }
 
 // ── 출력 모드(시안 §5 ②·③) — 입력줄 자리에 스크립트 이름표, 아래는 고정폭 출력. 실패면 전부 --danger로.
@@ -146,6 +163,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { e.preventDefault(); window.whencommand.hide(); return; }
   if (e.key === 'ArrowDown') { e.preventDefault(); move(1); return; }
   if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); return; }
+  // ⌘·Ctrl+Enter — 보조 동작(파일이 든 폴더 열기, FILE-04). 없는 항목이면 본 동작과 같다
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); run(sel, true); return; }
   if (e.key === 'Enter') { e.preventDefault(); run(); return; }
   // ⌘·Ctrl + 숫자로 직접 선택(PANEL-09)
   if ((e.metaKey || e.ctrlKey) && /^[1-8]$/.test(e.key)) { e.preventDefault(); run(Number(e.key) - 1); }
@@ -163,6 +182,7 @@ $list.addEventListener('click', (e) => {
 window.whencommand.onShown(() => { leaveOutput(); $q.value = ''; $q.focus(); query(); });
 window.whencommand.onHidden(() => { leaveOutput(); $q.value = ''; });
 window.whencommand.onOutput((payload) => { out = payload; renderOutput(); });
+window.whencommand.onMore(more);
 
 (async () => {
   info = await window.whencommand.init();

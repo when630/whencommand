@@ -33,6 +33,7 @@ export function bootstrap() {
     globalShortcut.unregisterAll();
     ctx.settings?.flush();
     ctx.store?.close();
+    ctx.sources?.files.dispose(); // Windows Search 질의 프로세스를 함께 끝낸다
   });
 
   app.whenReady().then(async () => {
@@ -66,6 +67,15 @@ async function smoke(ctx) {
     const r = await ctx.sources.query(q);
     const line = r.items.slice(0, 4).map((i) => `${i.title}${i.final != null ? `(${i.final.toFixed(2)}${i.via && i.via !== 'direct' ? ',' + i.via : ''})` : ''}`).join(' · ');
     console.log(`  ${(q || '(빈 입력)').padEnd(14)} → ${line || '(0개)'}`);
+  }
+  // 파일 검색(FILE) — 늦은 공급원은 따로 기다려 본다. 색인이 없으면 그 사실이 한 줄로 나와야 한다(FILE-05)
+  const fst = ctx.sources.files.status();
+  console.log(`smoke: 파일 검색 ${fst.ok ? 'ok' : `불가 — ${fst.reason}`}`);
+  for (const q of ['readme', '회의록', 'when630']) { // 3글자부터(FILE-03) — 2글자는 돌지 않는 게 맞다
+    const t0 = Date.now();
+    const more = await ctx.sources.files.late(q);
+    const n = more?.length ?? 0;
+    console.log(`  files ${q.padEnd(9)} → ${n}개 ${Date.now() - t0}ms${n ? ` · ${more[0].title}(${more[0].kind}) ${more[0].subtitle}` : ''}`);
   }
   ctx.panel.show();
   await sleep(500);

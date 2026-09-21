@@ -28,9 +28,25 @@ const CONTRACT = [
   'openApp',
   'scriptRunner',
   'exampleScript',
+  'createFileSearch',
   'setLoginItem',
   'getLoginItem',
 ];
+
+test('파일 검색은 OS 색인에 위임한다 — mdfind / Windows Search (D-09)', () => {
+  assert.match(read('darwin.mjs'), /spawn\('mdfind', \['-name'/);
+  assert.match(read('darwin.mjs'), /mdutil/); // FILE-05 — 색인 상태
+  assert.match(read('win32.mjs'), /win32-search\.ps1/);
+  const ps = read('win32-search.ps1');
+  assert.match(ps, /Search\.CollatorDSO/);
+  // 실제 경로는 ItemUrl에서 — ItemPathDisplay는 "C:\사용자\…" 같은 현지화 표시 경로다
+  assert.match(ps, /System\.ItemUrl/);
+  assert.ok(!/Fields\.Item\('System\.ItemPathDisplay'\)/.test(ps), 'ItemPathDisplay를 경로로 쓰면 안 된다');
+  // 두 구현 모두 같은 모양의 객체를 돌려준다
+  for (const impl of ['win32.mjs', 'darwin.mjs']) {
+    for (const key of ['ready', 'status', 'query', 'dispose']) assert.match(read(impl), new RegExp(`\\b${key}\\s*[:(]`), `${impl}의 createFileSearch에 ${key}가 없다`);
+  }
+});
 
 test('스크립트 실행기는 OS 관례를 따른다 — sh / powershell (EXT-03)', () => {
   assert.match(read('darwin.mjs'), /'\.sh'.*\/bin\/sh/);

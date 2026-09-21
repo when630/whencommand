@@ -30,6 +30,9 @@ async function runAction(ctx, item) {
       return true;
     case 'open-path':
       return !(await shell.openPath(a.path));
+    case 'reveal': // 파일이 든 폴더를 열고 그 파일을 고른다(FILE-04) — 양 OS 공통 API
+      shell.showItemInFolder(a.path);
+      return true;
     case 'open-url':
       await shell.openExternal(a.url);
       return true;
@@ -47,16 +50,19 @@ export function registerIpc(ctx) {
     appCount: ctx.sources.appCount(),
   }));
 
-  ipcMain.handle('query:run', (_e, q) => ctx.sources.query(q));
+  ipcMain.handle('query:run', (_e, q, seq) => ctx.sources.query(q, seq));
 
-  ipcMain.handle('item:run', async (_e, key) => {
+  // alt=true면 보조 동작(⌘·Ctrl+Enter) — 항목에 alt가 없으면 본 동작과 같다
+  async function runItem(key, alt = false) {
     const item = ctx.sources.find(key);
     if (!item) return false;
     ctx.panel.hide('run'); // 먼저 숨긴다 — 앱이 뜨는 동안 입력줄이 남아 있으면 느려 보인다
-    const ok = await runAction(ctx, item);
+    const ok = await runAction(ctx, alt && item.alt ? { ...item, action: item.alt } : item);
     if (ok && item.source !== 'calc') ctx.store.pick(item.key, item.source); // 계산 결과는 랭킹을 타지 않는다
     return ok;
-  });
+  }
+  ipcMain.handle('item:run', (_e, key) => runItem(key, false));
+  ipcMain.handle('item:alt', (_e, key) => runItem(key, true));
 
   // 출력 모드의 키(EXT-04·05): ↵ 다시 실행 · ⌘/Ctrl+↵ 스크립트 열기 · ⌘/Ctrl+C 복사
   ipcMain.handle('script:rerun', async (_e, file) => {
