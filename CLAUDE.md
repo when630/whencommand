@@ -24,7 +24,8 @@
 
 끝난 것: Phase 0 실측(10개 중 9개 답 — macOS 2026-09-19, Windows 2026-09-21, `docs/03 §11`), 시안 ㉤ 확정(D-15), 아이콘, 양 OS `smoke` 통과, Windows 실사용 첫날의 다듬기(D-18·D-19, 하단 바 제거), EXT(D-20), FILE(D-21 — Windows Search 실기기, mdfind 쪽은 미검증), LINK 양쪽(D-22 — `manifest.mjs`·`sources/siblings.mjs`; WHENNOTE에 스킴·매니페스트 붙여 Windows 실기기 검증; 규약 레포 `github.com/when630/when-protocol`), 설정 창(D-16 보충 — `settings-win.mjs`, 내장 명령 `설정`), `update.mjs`(whenwork 복사 — 트레이·설정 창에 업데이트 줄, `--check-update` 모드).
 v0.1.0 공개 뒤: 앱·파일 아이콘(D-23, LNCH-04), WHENNOTE 0.1.1 공개(딥링크 들어간 설치본).
-남은 것(순서대로): 실측 #2(설치본 자동 실행 토글) → macOS 실기기에서 FILE·LINK·설치본 첫 실행 검증(오픈이슈 #8) → 나머지 형제 앱 넷에 스킴(when-protocol README 세 단계) → 오픈이슈 #7(한글 별칭) → v0.2.0.
+실측 #2 Windows 확정(`--probe-login`). 형제 앱 다섯 전부 스킴 부착 — WHENNOTE 0.1.1 · WHENWORK 0.2.1 · WHENCALENDAR 0.1.3 · WHENMUSIC(옆 세션, `d9b28f5`) · WHENMAIL 0.8.1. 각 앱의 `add`류 결은 when-protocol README "붙인 앱" 절.
+남은 것(순서대로): macOS 실기기에서 FILE·LINK·설치본 첫 실행·실측 #2 검증(오픈이슈 #8) → 오픈이슈 #7(한글 별칭) → 오픈이슈 #6(단축키 뒤늦게 뺏김 — Windows엔 없음, macOS만) → v0.2.0.
 
 ## 밟으면 아픈 함정 (전부 실측으로 확인된 것 — `docs/03 §11`)
 
