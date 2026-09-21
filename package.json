@@ -1,6 +1,6 @@
 {
   "name": "whencommand",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "description": "자기 명사를 갖지 않는 앱 — 단축키 한 번, 몇 글자로 앱·파일·형제 앱 명령에 닿는다",
