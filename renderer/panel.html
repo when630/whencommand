@@ -18,8 +18,9 @@ body { padding: 28px; user-select: none; }             /* 28px = main/panel.mjs 
 .q { display: flex; align-items: center; gap: 11px; padding: 0 16px; height: 54px; flex: none; -webkit-app-region: drag; }
 .q input { -webkit-app-region: no-drag; }
 .foot { -webkit-app-region: drag; }
-.q .gi { width: 17px; height: 17px; flex: none; color: var(--text-muted); }
-.q .gi svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* 입력 행 왼쪽은 앱 글리프(⌘) — 트레이와 같은 build/tray@2x.png. 돋보기는 "검색"을 말하지만 이 앱은 검색이 아니라 실행이다 */
+.q .gi { width: 18px; height: 18px; flex: none; }
+.q .gi img { width: 100%; height: 100%; object-fit: contain; display: block; -webkit-user-drag: none; }
 .q input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--text-primary);
            font: inherit; font-size: 16.5px; letter-spacing: -.2px; caret-color: var(--accent); }
 .q input::placeholder { color: var(--text-muted); }
@@ -62,7 +63,7 @@ body { padding: 28px; user-select: none; }             /* 28px = main/panel.mjs 
 <body>
 <div class="panel" id="panel">
   <div class="q">
-    <span class="gi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+    <span class="gi"><img src="../build/tray@2x.png" alt=""></span>
     <input id="q" type="text" placeholder="하려는 일을 적으세요" autocomplete="off" spellcheck="false">
     <span class="hint" id="hint"></span>
   </div>
