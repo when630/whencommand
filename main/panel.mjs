@@ -10,7 +10,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const CARD_W = 560; // 시안 ㉤
 const PAD = 28; // 그림자가 들어갈 여백 — 창은 이만큼 더 크고, 그 밖은 투명하다
 const WIN_W = CARD_W + PAD * 2;
-const WIN_H_MAX = 54 + 1 + 6 + 8 * 40 + 6 + 34 + PAD * 2; // 입력 행 + 8줄 + 하단 바
+const WIN_H_MAX = 54 + 1 + 6 + 8 * 40 + 6 + PAD * 2; // 입력 행 + 8줄 (하단 바는 뺐다, D-15 보충)
 const POS_KEY = 'panel.pos'; // settings.json — 마우스로 옮긴 창 좌표(D-19)
 
 export function createPanel(ctx) {

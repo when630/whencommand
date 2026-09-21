@@ -7,7 +7,6 @@ const $list = document.getElementById('list');
 const $extra = document.getElementById('extra');
 const $hint = document.getElementById('hint');
 const $panel = document.getElementById('panel');
-const $footRun = document.getElementById('foot-run');
 
 let info = { platform: 'darwin', hotkeyLabel: '', appCount: 0 };
 let items = [];
@@ -59,7 +58,6 @@ function render(result) {
     else $extra.innerHTML = `<div class="empty"><div class="t1">찾은 것이 없습니다</div><div class="t2">앱 ${info.appCount}개에서 찾았습니다 · 초성·영문 자판 모두 봤습니다</div></div>`;
   }
   $hint.textContent = q && items.length ? `${items.length}개` : '';
-  $footRun.innerHTML = items[sel]?.source === 'calc' ? '<kbd>↵</kbd> 복사' : '<kbd>↵</kbd> 실행';
   // 카드 높이를 메인에 알린다 — 남는 투명 영역이 아래 창의 클릭을 먹지 않게
   requestAnimationFrame(() => window.whencommand.resize($panel.offsetHeight));
 }
@@ -80,7 +78,6 @@ function move(d) {
   sel = (sel + d + items.length) % items.length;
   $list.querySelectorAll('.row').forEach((el, i) => el.classList.toggle('sel', i === sel));
   $list.querySelector('.row.sel')?.scrollIntoView({ block: 'nearest' });
-  $footRun.innerHTML = items[sel]?.source === 'calc' ? '<kbd>↵</kbd> 복사' : '<kbd>↵</kbd> 실행';
 }
 
 async function run(i = sel) {
@@ -113,6 +110,6 @@ window.whencommand.onHidden(() => { $q.value = ''; });
 
 (async () => {
   info = await window.whencommand.init();
-  $q.placeholder = info.hotkeyOk ? '하려는 일을 적으세요' : `${info.hotkeyLabel} 를 등록하지 못했습니다 — 트레이에서 부르세요`;
+  $q.placeholder = info.hotkeyOk ? 'WHENCOMMAND' : `${info.hotkeyLabel} 를 등록하지 못했습니다 — 트레이에서 부르세요`;
   query();
 })();
