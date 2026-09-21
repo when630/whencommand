@@ -3,6 +3,7 @@
 //   parseManifest  JSON 문자열 → { ok, manifest } | { ok:false, error }. 깨진 파일은 **그 파일만** 건너뛴다(LINK-05)
 //   splitCommand   입력이 "명령 제목 + 인자"인지 — `메모 검색 회의록` → '회의록', `메모 검색` → '', 아니면 null
 //   buildUrl       딥링크 — whennote://search?q=%ED%9A%8C%EC%9D%98 (LINK-03)
+//   usageOf        설정 창(D-16·D-25)이 보여 주는 사용법 한 줄 — 입력줄에 무엇을 치면 이 명령이 되는지
 
 export const PROTOCOL = 1;
 const ID = /^[a-z][a-z0-9-]{1,31}$/;
@@ -72,3 +73,13 @@ export function missingArg(command, rest) {
   const arg = command.args?.[0];
   return arg && !arg.optional && !rest ? arg.name : null;
 }
+
+// 설정 창의 접힌 사용법(D-25) — 사용자가 입력줄에 칠 모양 그대로. `메모 검색 ‹q›` · `퀵 메모 [text]` · `메모 창 열기`.
+// 인자 이름은 매니페스트에 적힌 영문 그대로 둔다 — 입력줄 부제("뒤에 q를 붙이세요", D-22)와 같은 말이어야 한다.
+export function usageOf(command) {
+  const arg = command.args?.[0];
+  const line = !arg ? command.title : `${command.title} ${arg.optional ? `[${arg.name}]` : `‹${arg.name}›`}`;
+  const argNote = !arg ? '' : arg.optional ? `${arg.name}는 빼도 됩니다` : `${arg.name}는 꼭 붙입니다 — 없이 실행하면 앱이 빈 값으로 엽니다`;
+  return { line, argNote, description: command.description || '' };
+}
+

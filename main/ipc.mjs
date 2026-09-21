@@ -5,6 +5,7 @@ import { platform } from './platform/index.mjs';
 import { route, locate, lineCount } from './scripts.mjs';
 import { SCRIPTS_DIR } from './sources/scripts.mjs';
 import { APPS_DIR } from './sources/siblings.mjs';
+import { usageOf } from './manifest.mjs';
 import { updateLine } from './update.mjs';
 
 // 스크립트 실행 → 출력 길이로 가른다(D-17). 3줄 이하 성공은 토스트(한 줄이면 복사), 그 밖은 패널이 자란다(EXT-04·05).
@@ -98,7 +99,13 @@ export function registerIpc(ctx) {
       siblings: {
         dir: APPS_DIR,
         exists: fs.existsSync(APPS_DIR),
-        apps: sib.apps().map((m) => ({ name: m.name, icon: m.name.replace(/^when/i, '')[0]?.toUpperCase() ?? '?', commands: m.commands.length })),
+        // 명령마다 사용법 한 줄(D-25) — 설정 창이 캡션 뒤에 접어 둔다. 렌더러는 문구를 만들지 않는다
+        apps: sib.apps().map((m) => ({
+          id: m.id,
+          name: m.name,
+          icon: m.name.replace(/^when/i, '')[0]?.toUpperCase() ?? '?',
+          commands: m.commands.map((c) => ({ id: c.id, ...usageOf(c) })),
+        })),
         skipped: sib.skipped().map((s) => ({ file: s.file.split(/[\\/]/).pop(), error: s.error })),
       },
       store: { file: ctx.store.file },

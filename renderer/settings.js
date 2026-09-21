@@ -7,6 +7,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 
 let st = null;
 let capturing = false; // 단축키 바꾸는 중 — 다음 키 조합을 받는다
+const opened = new Set(); // 사용법을 펼친 형제 앱 id — 다시 그려도(다시 읽기·refresh) 펼친 채로 남는다
 
 function msg(text, kind = '') {
   const el = $('msg');
@@ -14,8 +15,9 @@ function msg(text, kind = '') {
   el.className = `msg ${kind}`;
 }
 
+// 본문은 창 상한에 걸리면 스크롤되므로(offsetHeight는 잘린 높이) 내용 높이는 scrollHeight로 잰다. 메인이 화면에 맞춰 자른다
 function fit() {
-  requestAnimationFrame(() => window.settings.resize($('body').offsetHeight + 40));
+  requestAnimationFrame(() => window.settings.resize($('body').scrollHeight + document.querySelector('.tb').offsetHeight));
 }
 
 function render() {
@@ -43,7 +45,16 @@ function render() {
   else {
     const rows = [];
     for (const s of st.siblings.apps) {
-      rows.push(`<div class="sib"><span class="ic">${esc(s.icon)}</span><span class="nm">${esc(s.name)}</span><span class="cnt">${s.commands}개 명령</span><span class="st ok">연결됨</span></div>`);
+      // 사용법은 캡션 뒤에 접혀 있다(D-25) — 상태표는 한 줄로 남고, 궁금한 사람만 연다
+      const on = opened.has(s.id);
+      rows.push(`<div class="sib can${on ? ' open' : ''}" data-app="${esc(s.id)}" title="${on ? '사용법 접기' : '사용법 펼치기'}"><span class="ic">${esc(s.icon)}</span><span class="nm">${esc(s.name)}</span><span class="cnt">${s.commands.length}개 명령 · <span class="cap">사용법</span><span class="chev">›</span></span><span class="st ok">연결됨</span></div>`);
+      rows.push(`<div class="how${on ? ' open' : ''}" data-how="${esc(s.id)}">` +
+        `<div class="lead"><kbd>${esc(st.hotkeyLabel)}</kbd> 를 누르고 아래처럼 칩니다. 제목 뒤에 띄어 쓴 것이 <span class="arg">‹ ›</span> 자리에 들어갑니다 — <code>${esc(s.name.toLowerCase())}</code> 만 쳐도 이 앱 명령이 전부 나옵니다</div>` +
+        s.commands.map((c) => {
+          const ln = esc(c.line).replace(/(‹[^›]*›|\[[^\]]*\])$/, '<span class="arg">$1</span>');
+          const ds = [c.description && esc(c.description), c.argNote && `<span class="an">${esc(c.argNote)}</span>`].filter(Boolean).join(' · ');
+          return `<div class="cmd"><div class="ln">${ln}</div>${ds ? `<div class="ds">${ds}</div>` : ''}</div>`;
+        }).join('') + `</div>`);
     }
     for (const s of st.siblings.skipped) {
       const gone = s.error === '설치돼 있지 않다';
@@ -54,6 +65,19 @@ function render() {
       `<div class="opt" style="padding-top:4px"><div class="l"><div class="d">규약: <code>when630/when-protocol</code></div></div><span class="btn" id="refreshLists">다시 읽기</span><span class="btn" id="openSiblings">폴더 열기</span></div>`;
     $('refreshLists').addEventListener('click', async () => { await window.settings.refreshLists(); await load(); msg('목록을 다시 읽었습니다', 'ok'); });
     $('openSiblings').addEventListener('click', () => window.settings.openSiblings());
+    for (const row of sec.querySelectorAll('.sib.can')) {
+      row.addEventListener('click', () => {
+        const id = row.dataset.app;
+        const how = sec.querySelector(`[data-how="${id}"]`);
+        const on = !opened.has(id);
+        if (on) opened.add(id); else opened.delete(id);
+        row.classList.toggle('open', on);
+        row.title = on ? '사용법 접기' : '사용법 펼치기';
+        how.classList.toggle('open', on);
+        fit(); // 펼치면 창이 자란다 — 상한에 걸리면 본문이 스크롤된다
+        if (on) requestAnimationFrame(() => how.scrollIntoView({ block: 'nearest' }));
+      });
+    }
   }
 
   // 정보
@@ -183,4 +207,5 @@ $('upd').addEventListener('click', async () => {
 
 $('close').addEventListener('click', () => window.settings.close());
 window.settings.onRefresh(() => { msg(''); load(); });
+document.fonts?.ready.then(() => fit()); // 웹폰트가 늦게 오면 줄 높이가 바뀐다 — 한 번 더 맞춘다
 load();

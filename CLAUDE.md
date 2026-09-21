@@ -26,6 +26,7 @@
 v0.1.0 공개 뒤: 앱·파일 아이콘(D-23, LNCH-04), WHENNOTE 0.1.1 공개(딥링크 들어간 설치본).
 실측 #2 Windows 확정(`--probe-login`). 형제 앱 다섯 전부 스킴 부착 — WHENNOTE 0.1.1 · WHENWORK 0.2.1 · WHENCALENDAR 0.1.3 · WHENMUSIC(옆 세션, `d9b28f5`) · WHENMAIL 0.8.1. 각 앱의 `add`류 결은 when-protocol README "붙인 앱" 절.
 한글 별칭(D-24, 오픈이슈 #7 해소 — `aliases.mjs` + `~/.whencommand/aliases.json`).
+설정 창 다듬기(D-25) — 형제 앱 줄의 "N개 명령 · 사용법 ›" 캡션을 누르면 명령별 입력 예시가 접혀서 펼쳐진다(`manifest.mjs usageOf`). 창 높이는 작업영역을 넘지 않고 본문이 스크롤된다(860에서 '정보'가 잘리던 것). `SMOKE_SETTINGS=open`.
 남은 것(순서대로): macOS 실기기에서 FILE·LINK·설치본 첫 실행·실측 #2 검증(오픈이슈 #8) → 오픈이슈 #6(단축키 뒤늦게 뺏김 — macOS만) → v0.2.0(라이브 조회 #2는 v2).
 
 ## 밟으면 아픈 함정 (전부 실측으로 확인된 것 — `docs/03 §11`)

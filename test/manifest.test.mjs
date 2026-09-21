@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseManifest, splitCommand, buildUrl, missingArg } from '../main/manifest.mjs';
+import { parseManifest, splitCommand, buildUrl, missingArg, usageOf } from '../main/manifest.mjs';
 
 const GOOD = {
   protocol: 1,
@@ -61,3 +61,17 @@ test('missingArg: 필수 인자를 안 받았을 때만 이름을 돌려준다',
   assert.equal(missingArg(m.commands[0], ''), null); // optional
   assert.equal(missingArg(m.commands[2], ''), null); // 인자 없음
 });
+
+test('usageOf: 설정 창의 사용법 한 줄 — 필수 인자는 ‹›, 선택 인자는 [], 없으면 제목만 (D-25)', () => {
+  const { commands } = parseManifest(JSON.stringify(GOOD)).manifest;
+  const [capture, search, open] = commands;
+  assert.deepEqual(usageOf(search), { line: '메모 검색 ‹q›', argNote: 'q는 꼭 붙입니다 — 없이 실행하면 앱이 빈 값으로 엽니다', description: '' });
+  assert.equal(usageOf(capture).line, '퀵 메모 [text]');
+  assert.equal(usageOf(capture).argNote, 'text는 빼도 됩니다');
+  assert.equal(usageOf(capture).description, '작은 메모 창');
+  assert.deepEqual(usageOf(open), { line: '메모 창 열기', argNote: '', description: '' });
+  // 입력줄 부제(D-22 missingArg)와 같은 인자 이름을 쓴다 — 두 화면이 다른 말을 하면 안 된다
+  assert.equal(missingArg(search, ''), 'q');
+  assert.match(usageOf(search).line, /‹q›/);
+});
+

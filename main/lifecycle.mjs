@@ -164,11 +164,16 @@ async function smoke(ctx) {
     fs.writeFileSync(out2, shot.toPNG());
     console.log(`smoke: 실행 → ${ctx.panel.isVisible() ? '패널 출력 모드' : '토스트'} · 캡처 → ${out2}`);
   }
-  // SMOKE_SETTINGS=1 — 설정 창을 열어 찍는다(D-16). 형제 앱 목록·단축키 상태가 화면에 어떻게 서는지
+  // SMOKE_SETTINGS=1 — 설정 창을 열어 찍는다(D-16). 형제 앱 목록·단축키 상태가 화면에 어떻게 서는지.
+  // SMOKE_SETTINGS=open — 형제 앱 사용법(D-25)을 전부 펼친 채로 찍는다. 창이 상한에 걸려 스크롤되는 모양까지 본다
   if (process.env.SMOKE_SETTINGS) {
     ctx.panel.hide('smoke');
     ctx.settingsWin.show();
     await sleep(900);
+    if (process.env.SMOKE_SETTINGS === 'open') {
+      await ctx.settingsWin.win.webContents.executeJavaScript(`document.querySelectorAll('.sib.can:not(.open)').forEach((r) => r.click())`);
+      await sleep(400);
+    }
     const shot = await ctx.settingsWin.win.webContents.capturePage();
     const out3 = out.replace(/\.png$/, '-settings.png');
     fs.writeFileSync(out3, shot.toPNG());

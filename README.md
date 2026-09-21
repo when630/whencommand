@@ -76,7 +76,7 @@ xattr -dr com.apple.quarantine /Applications/WHENCOMMAND.app
 
 ## 형제 앱 명령
 
-형제 앱이 실행되면 `~/.when/apps/<앱>.json`에 자기 명령을 남기고, 이 앱은 그 폴더를 읽어 명령을 입력줄에 합칩니다 — `메모 검색 회의록` `Enter`로 WHENNOTE가 그 검색어로 열립니다. 규약은 [when-protocol](https://github.com/when630/when-protocol)에 있고, 형제 앱 다섯이 모두 붙어 있습니다(WHENNOTE 0.1.1 · WHENWORK 0.2.1 · WHENCALENDAR 0.1.3 · WHENMAIL 0.8.1 · WHENMUSIC). 어느 형제 앱이 왜 안 보이는지는 설정 창의 "형제 앱" 섹션이 이유와 함께 보여 줍니다.
+형제 앱이 실행되면 `~/.when/apps/<앱>.json`에 자기 명령을 남기고, 이 앱은 그 폴더를 읽어 명령을 입력줄에 합칩니다 — `메모 검색 회의록` `Enter`로 WHENNOTE가 그 검색어로 열립니다. 규약은 [when-protocol](https://github.com/when630/when-protocol)에 있고, 형제 앱 다섯이 모두 붙어 있습니다(WHENNOTE 0.1.1 · WHENWORK 0.2.1 · WHENCALENDAR 0.1.3 · WHENMAIL 0.8.1 · WHENMUSIC). 어느 형제 앱이 왜 안 보이는지는 설정 창의 "형제 앱" 섹션이 이유와 함께 보여 줍니다. 각 앱 줄의 **"N개 명령 · 사용법"**을 누르면 그 앱의 명령을 입력줄에 어떻게 치는지(`메모 검색 ‹q›`처럼) 접혀 있던 목록이 펼쳐집니다.
 
 ## 개발 실행
 

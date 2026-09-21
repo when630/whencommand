@@ -8,8 +8,10 @@
 <style>
 /* 시안 §6 — 540px 창 하나에 여섯 섹션. 형제 앱 목록이 이 창의 핵심이다(왜 어떤 명령이 안 보이는지는 여기서만 안다) */
 html, body { background: var(--bg-app); height: 100%; overflow: hidden; }
-body { user-select: none; color: var(--text-primary); }
-.tb { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 12px 0 16px; -webkit-app-region: drag; border-bottom: 1px solid var(--border); }
+body { user-select: none; color: var(--text-primary); display: flex; flex-direction: column; }
+/* 창이 화면 상한에 걸리면 본문만 스크롤 — 제목줄은 남는다 */
+.body { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+.tb { display: flex; align-items: center; gap: 10px; height: 40px; flex: none; padding: 0 12px 0 16px; -webkit-app-region: drag; border-bottom: 1px solid var(--border); }
 .tb img { width: 16px; height: 16px; -webkit-user-drag: none; }
 .tb .ttl { flex: 1; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); letter-spacing: .2px; }
 .tb .x { -webkit-app-region: no-drag; width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; color: var(--text-muted); cursor: default; font-size: 14px; }
@@ -36,11 +38,26 @@ body { user-select: none; color: var(--text-primary); }
 .btn.dng { color: var(--danger); } .btn.dng:hover { background: rgba(247,118,142,.12); }
 .btn.confirm { background: var(--danger); border-color: var(--danger); color: #fff; }
 .sib { display: flex; align-items: center; gap: 10px; padding: 7px 20px; }
+.sib.can { cursor: default; } .sib.can:hover { background: var(--bg-hover); }
 .sib .ic { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--accent-dim); color: var(--accent); flex: none; }
 .sib.off .ic { background: var(--bg-inset); color: var(--text-muted); }
 .sib .nm { flex: 1; min-width: 0; font-size: 13px; font-weight: 550; display: flex; flex-direction: column; }
 .sib .nm small { font-size: 11px; font-weight: 400; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sib .cnt { font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); }
+.sib .cnt { font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+/* 사용법은 캡션 뒤에 접혀 있다(D-25) — "4개 명령 · 사용법 ›"를 누르면 그 앱 줄 아래로 펼쳐진다 */
+.sib .cnt .cap { color: var(--text-muted); border-bottom: 1px dotted var(--border); }
+.sib.can:hover .cnt .cap, .sib.open .cnt .cap { color: var(--text-secondary); border-bottom-color: var(--text-muted); }
+.sib .cnt .chev { display: inline-block; transition: transform .12s; font-size: 12px; line-height: 1; }
+.sib.open .cnt .chev { transform: rotate(90deg); }
+.how { display: none; margin: 0 20px 6px 54px; padding: 8px 12px 6px; border-left: 2px solid var(--border); }
+.how.open { display: block; }
+.how .lead { font-size: 11px; color: var(--text-muted); line-height: 1.55; word-break: keep-all; margin-bottom: 6px; }
+.how .lead .arg { color: var(--accent); font-family: var(--font-mono); }
+.how .cmd { padding: 4px 0; }
+.how .cmd .ln { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); }
+.how .cmd .ln .arg { color: var(--accent); }
+.how .cmd .ds { font-size: 11px; color: var(--text-muted); margin-top: 1px; line-height: 1.5; word-break: keep-all; }
+.how .cmd .ds .an { color: var(--text-secondary); }
 .sib .st { font-size: 10px; font-family: var(--font-mono); padding: 1px 8px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg-inset); }
 .sib .st.ok { color: var(--success); } .sib .st.gone { color: var(--text-muted); } .sib .st.bad { color: var(--danger); }
 .empty { padding: 6px 20px 8px; font-size: 11.5px; color: var(--text-muted); line-height: 1.55; }
