@@ -38,7 +38,7 @@ v0.1.0 공개 뒤: 앱·파일 아이콘(D-23, LNCH-04), WHENNOTE 0.1.1 공개(�
 5. **`node:sqlite`는 Electron 내장 Node에만 있다.** 개발 PC의 Node 22.12 `node --test`에서는 못 연다 — `store.mjs` 테스트는 Electron 안(`--smoke`)에서만 검증된다
 6. **초성 검색은 한글 이름에만 걸린다.** 영문 앱은 `main/aliases.mjs`의 한글 별칭 표(D-24)로 잡는다 — `ㅋㄹ`→크롬→Google Chrome. 표에 없는 앱은 `~/.whencommand/aliases.json`. 영문을 한글 자판으로 친 것(`초개ㅡㄷ`→chrome)은 `keyboardToLatin`이 되돌린다
 7. **퍼지 점수에서 연속 매칭 가산을 단어 첫 글자보다 낮게 두면 흩어진 머리글자가 항상 이긴다** — `chr`이 Chrome보다 Cache Handler Runner에 붙었다. 지금은 같다(`search.mjs` 주석)
-8. **Windows는 `win.hide()`만으로 직전 창에 포커스가 돌아오지 않는다.** 항상-위·작업표시줄-제외 창을 숨기면 OS가 아무 창이나 고른다. `minimize()`를 거쳐 숨기면 돌아오고, 그래서 보일 때 `restore()`가 먼저다 — `platform/win32.mjs`. 단축키는 macOS와 반대로 **먼저 등록한 앱이 이기고** `register()`가 false를 정직하게 돌려준다(Raycast for Windows가 떠 있으면 FAIL)
+8. **Windows는 `win.hide()`만으로 직전 창에 포커스가 돌아오지 않는다.** 항상-위·작업표시줄-제외 창을 숨기면 OS가 아무 창이나 고른다. `minimize()`를 거쳐 숨기면 돌아오고, 그래서 보일 때 `restore()`가 먼저다 — `platform/win32.mjs activate`가 restore→show→focus를 한 번에 맡는다. `panel.show()`에서 `win.show()`를 따로 부르면 두 번 그려져 깜빡인다(D-27). 단축키는 macOS와 반대로 **먼저 등록한 앱이 이기고** `register()`가 false를 정직하게 돌려준다(Raycast for Windows가 떠 있으면 FAIL)
 9. **직전 인스턴스를 죽인 직후 바로 띄우면 단일 인스턴스 락에 걸려 조용히 종료된다**(exit 0, 출력 없음). 몇 초 뒤 다시 띄우면 된다. `npm start`를 멈춰도 자식 `electron.exe`는 남는다 — whencommand 것만 골라 끄고, 개발 실행은 `Start-Process`로 셸과 분리해 띄운다
 10. **PowerShell은 실패해도 exit 0으로 끝날 수 있다.** 파일이 없거나 마지막 명령이 실패하면 `$LASTEXITCODE`가 비어 있다 — `$?`를 함께 본다(`platform/win32.mjs scriptRunner`). 그리고 한국어 콘솔은 cp949라 `[Console]::OutputEncoding`을 UTF-8로 먼저 세우지 않으면 한글 출력이 깨진다
 11. **Windows Search의 `System.ItemPathDisplay`는 경로가 아니다** — `C:\사용자\forcs\…`처럼 현지화된 표시용이다. 실제 경로는 `System.ItemUrl`(`file:C:/Users/…`)에서 뽑는다(`platform/win32-search.ps1`). PowerShell은 질의마다 띄우면 ~400ms라 한 번 띄워 stdin으로 묻는다

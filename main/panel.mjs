@@ -11,6 +11,7 @@ export const CARD_W = 560; // 시안 ㉤
 const PAD = 28; // 그림자가 들어갈 여백 — 창은 이만큼 더 크고, 그 밖은 투명하다
 const WIN_W = CARD_W + PAD * 2;
 const WIN_H_MAX = 54 + 1 + 6 + 8 * 40 + 6 + PAD * 2; // 입력 행 + 8줄 (하단 바는 뺐다, D-15 보충)
+const WIN_H_MIN = 54 + PAD * 2; // 입력 행만 — 열릴 때는 항상 이 높이다(SRCH-07: 빈 입력은 입력줄만)
 const POS_KEY = 'panel.pos'; // settings.json — 마우스로 옮긴 창 좌표(D-19)
 
 export function createPanel(ctx) {
@@ -68,8 +69,10 @@ export function createPanel(ctx) {
   function show() {
     if (ctx.quitting) return;
     place();
-    win.show();
-    platform.activate(win);
+    // 숨겨져 있던 동안의 크기(결과 8줄이었을 수 있다)로 뜬 뒤 입력줄 높이로 줄어드는 것이 두 번째 깜빡임이었다(D-27).
+    // 열릴 때 내용은 항상 빈 입력줄이니(panel:hidden·shown에서 비운다) 보이기 전에 그 높이로 맞춘다
+    if (win.getSize()[1] !== WIN_H_MIN) win.setSize(WIN_W, WIN_H_MIN, false);
+    platform.activate(win); // restore/show/focus — 순서와 조합은 OS가 다르다(실측 #7)
     win.webContents.send('panel:shown');
   }
 
@@ -105,7 +108,8 @@ export function createPanel(ctx) {
 
   // 렌더러가 카드 높이를 보내면 창을 거기에 맞춘다 — 남는 투명 영역이 아래 창의 클릭을 먹지 않게
   function resize(cardH) {
-    const h = Math.max(54 + PAD * 2, Math.min(WIN_H_MAX, Math.round(cardH) + PAD * 2));
+    if (!win.isVisible()) return; // 숨긴 뒤 렌더러가 비우며 보내는 resize — 최소화된 창의 크기를 건드리지 않는다. show()가 맞춘다
+    const h = Math.max(WIN_H_MIN, Math.min(WIN_H_MAX, Math.round(cardH) + PAD * 2));
     const [w] = win.getSize();
     if (win.getSize()[1] !== h) win.setSize(w, h, false);
   }

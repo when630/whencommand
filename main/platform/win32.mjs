@@ -45,8 +45,11 @@ export default {
   // Windows는 show()가 곧 활성화다. 단 **hide()만으로는 직전 창에 포커스가 돌아오지 않는다**(실측 2026-09-21, 03 §11 #7) —
   // 항상-위·작업표시줄-제외 창을 숨기면 OS가 Z순서에서 아무 창이나 고른다. 숨기기 전에 minimize()를 거치면
   // 최소화의 정규 활성화 경로가 직전 포그라운드 창을 복귀시킨다. 최소화된 창은 isVisible()=false라 show() 전에 restore()가 필요하다.
+  // 숨길 때 minimize()를 거쳤으니(아래) 보일 때는 restore()가 먼저다. restore()가 창을 보이게 하므로 그 뒤 show()는 안 부른다 —
+  // show() 뒤에 restore()를 부르면 두 번 그려져 깜빡였다(2026-09-21 실사용, D-27)
   activate(win) {
     if (win.isMinimized()) win.restore();
+    if (!win.isVisible()) win.show();
     win.focus();
   },
   deactivate(win) {

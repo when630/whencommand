@@ -229,7 +229,7 @@ $list.addEventListener('click', (e) => {
 
 // 다시 부르면 **항상 빈 줄**로 시작한다(PANEL-07). 출력 모드도 여기서 끝난다 — 다음 부름은 늘 입력줄이다
 window.whencommand.onShown(() => { leaveOutput(); $q.value = ''; $q.focus(); query(); });
-window.whencommand.onHidden(() => { leaveOutput(); $q.value = ''; });
+window.whencommand.onHidden(() => { leaveOutput(); $q.value = ''; query(); }); // 목록까지 비운다 — 다음에 뜰 첫 프레임에 옛 결과가 남지 않게(D-27)
 window.whencommand.onOutput((payload) => { out = payload; renderOutput(); });
 window.whencommand.onMore(more);
 

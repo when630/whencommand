@@ -75,6 +75,7 @@ export default {
   // 사용자가 단축키로 부른 직후라면 app.focus({steal:true})가 활성화를 만든다(협력적 활성화 —
   // 프로그램이 스스로 띄우면 안 된다). 숨길 때 app.hide()를 함께 불러야 직전 앱으로 돌아간다.
   activate(win) {
+    if (!win.isVisible()) win.show();
     app.focus({ steal: true });
     win.focus();
   },
