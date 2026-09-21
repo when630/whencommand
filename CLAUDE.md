@@ -18,7 +18,7 @@
 
 ## 현재 단계
 
-**v0.1.0 공개(2026-09-21)** — `github.com/when630/whencommand/releases/tag/v0.1.0`. Windows NSIS + macOS dmg/zip(arm64·x64), CI 세 OS. macOS는 실기기 검증 전.
+**v0.1.1 공개(2026-09-21)** — `github.com/when630/whencommand/releases`. v0.1.0(첫 릴리스) 같은 날 v0.1.1(아이콘·한글 별칭). Windows NSIS + macOS dmg/zip(arm64·x64), CI 세 OS. macOS는 실기기 검증 전.
 
 **Phase 3 — 앱·스크립트·파일·계산이 한 목록에 온다.** `⌘Space` → 입력줄 → 앱·스크립트를 초성·퍼지·자판 교정으로 찾고, 3글자부터 파일이 늦게 합류해(D-11·D-21) `Enter`로 실행. 스크립트 출력은 길이로 갈려 토스트 또는 패널 출력 모드(D-17). `npm run smoke`가 사람 손 없이 끝까지 돌고 렌더링을 PNG로 찍는다 — `SMOKE_RUN=<스크립트>`면 실제로 실행해 출력 분기까지 찍는다.
 
@@ -26,7 +26,7 @@
 v0.1.0 공개 뒤: 앱·파일 아이콘(D-23, LNCH-04), WHENNOTE 0.1.1 공개(딥링크 들어간 설치본).
 실측 #2 Windows 확정(`--probe-login`). 형제 앱 다섯 전부 스킴 부착 — WHENNOTE 0.1.1 · WHENWORK 0.2.1 · WHENCALENDAR 0.1.3 · WHENMUSIC(옆 세션, `d9b28f5`) · WHENMAIL 0.8.1. 각 앱의 `add`류 결은 when-protocol README "붙인 앱" 절.
 한글 별칭(D-24, 오픈이슈 #7 해소 — `aliases.mjs` + `~/.whencommand/aliases.json`).
-남은 것(순서대로): v0.1.1 릴리스(아이콘·별칭·종료 추적·--probe-login) → macOS 실기기에서 FILE·LINK·설치본 첫 실행·실측 #2 검증(오픈이슈 #8) → 오픈이슈 #6(단축키 뒤늦게 뺏김 — macOS만) → v0.2.0(라이브 조회 #2는 v2).
+남은 것(순서대로): macOS 실기기에서 FILE·LINK·설치본 첫 실행·실측 #2 검증(오픈이슈 #8) → 오픈이슈 #6(단축키 뒤늦게 뺏김 — macOS만) → v0.2.0(라이브 조회 #2는 v2).
 
 ## 밟으면 아픈 함정 (전부 실측으로 확인된 것 — `docs/03 §11`)
 
