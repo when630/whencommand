@@ -11,6 +11,7 @@ import { createSources } from './sources/index.mjs';
 import { createPanel } from './panel.mjs';
 import { createToast } from './toast.mjs';
 import { createSettingsWin } from './settings-win.mjs';
+import { initLog, log, traceQuit } from './log.mjs';
 import { registerIpc, runScript } from './ipc.mjs';
 import { SCRIPTS_DIR } from './sources/scripts.mjs';
 
@@ -18,18 +19,22 @@ const APP_ID = 'com.when630.whencommand';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 export function bootstrap() {
+  initLog(path.join(app.getPath('userData'), 'whencommand.log'));
+  traceQuit(app);
   // 두 번째 인스턴스는 첫 인스턴스의 입력줄을 띄우고 물러난다 — 트레이에서 못 찾고 다시 실행하는 경우가 그 자리다
   if (!app.requestSingleInstanceLock()) {
+    log('두 번째 인스턴스 — 물러난다', process.argv);
     app.quit();
     return;
   }
   platform.prepareApp(app, { appId: APP_ID });
+  log(`시작 pid=${process.pid} ${app.isPackaged ? '설치본' : '개발'} ${app.getVersion()}`, process.argv.slice(1));
 
   const ctx = { root: ROOT, quitting: false, panel: null, tray: null, hotkey: null, hotkeyOk: false };
 
-  app.on('second-instance', () => ctx.panel?.show());
-  app.on('window-all-closed', () => {}); // 창이 닫혀도 트레이에 남는다(PANEL-11)
-  app.on('before-quit', () => { ctx.quitting = true; });
+  app.on('second-instance', (_e, argv) => { log('second-instance', argv); ctx.panel?.show(); });
+  app.on('window-all-closed', () => log('window-all-closed')); // 창이 닫혀도 트레이에 남는다(PANEL-11)
+  app.on('before-quit', () => { ctx.quitting = true; log('before-quit'); });
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
     ctx.settings?.flush();
