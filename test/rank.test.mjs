@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { recency, score, rank, frequent } from '../main/rank.mjs';
+import { recency, score, rank } from '../main/rank.mjs';
 
 const NOW = 1_700_000_000_000;
 const H = 3_600_000;
@@ -51,11 +51,4 @@ test('rank: 매칭이 낮아도 자주 고른 것이 위로 온다 — 그러나
 test('rank: 동점이면 짧은 제목이 먼저', () => {
   const out = rank([{ key: 'x', title: 'Terminal Pro', base: 0.5 }, { key: 'y', title: 'Term', base: 0.5 }], new Map(), NOW);
   assert.deepEqual(out.map((x) => x.key), ['y', 'x']);
-});
-
-test('frequent: 한 번도 고르지 않은 것은 빈 입력에 나오지 않는다 (첫 실행은 힌트)', () => {
-  const items = [{ key: 'a', title: 'A', base: 1 }, { key: 'b', title: 'B', base: 1 }];
-  assert.deepEqual(frequent(items, new Map(), 4, NOW), []);
-  const picks = new Map([['b', { hits: 2, lastAt: NOW }]]);
-  assert.deepEqual(frequent(items, picks, 4, NOW).map((x) => x.key), ['b']);
 });

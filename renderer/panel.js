@@ -9,7 +9,7 @@ const $hint = document.getElementById('hint');
 const $panel = document.getElementById('panel');
 const $footRun = document.getElementById('foot-run');
 
-let info = { platform: 'darwin', hotkeyLabel: '', hasPicks: false, appCount: 0 };
+let info = { platform: 'darwin', hotkeyLabel: '', appCount: 0 };
 let items = [];
 let sel = 0;
 let seq = 0; // 늦게 도착한 응답을 버리기 위한 순번
@@ -54,8 +54,8 @@ function render(result) {
   $list.innerHTML = '';
   $extra.innerHTML = '';
   if (result.empty) {
-    if (items.length) $list.innerHTML = `<div class="gh">자주 쓰는 것</div>` + items.map(row).join('');
-    else $extra.innerHTML = `<div class="hintline"><span class="dot"></span><span>앱 이름을 <b>몇 글자만</b> — 초성도 됩니다(<code>ㅋㄹ</code> → 크롬). 수식을 치면 계산합니다.<br>자주 고른 것이 여기 쌓입니다.</span></div>`;
+    // 빈 입력은 입력줄만(D-18). 세 번 고르기 전까지만 사용법 한 줄(SRCH-07)
+    if (result.hint) $extra.innerHTML = `<div class="hintline"><span class="dot"></span><span>앱 이름을 <b>몇 글자만</b> — 초성도 됩니다(<code>ㅋㄹ</code> → 크롬). 수식을 치면 계산합니다.<br>자주 고른 것이 위로 올라옵니다.</span></div>`;
   } else if (!items.length) {
     $extra.innerHTML = `<div class="empty"><div class="t1">찾은 것이 없습니다</div><div class="t2">앱 ${info.appCount}개에서 찾았습니다 · 초성·영문 자판 모두 봤습니다</div></div>`;
   } else {

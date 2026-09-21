@@ -27,7 +27,6 @@ export function registerIpc(ctx) {
     hotkeyLabel: platform.hotkeyLabel(ctx.hotkey),
     hotkeyOk: ctx.hotkeyOk,
     appCount: ctx.sources.appCount(),
-    hasPicks: ctx.store.picks().size > 0, // 첫 실행이면 "자주 쓰는 것" 대신 힌트(SRCH-07)
   }));
 
   ipcMain.handle('query:run', (_e, q) => ctx.sources.query(q));

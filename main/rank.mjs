@@ -28,12 +28,3 @@ export function rank(items, picks, now = Date.now()) {
     .filter((it) => it.final > 0)
     .sort((a, b) => b.final - a.final || a.title.length - b.title.length || a.title.localeCompare(b.title, 'ko'));
 }
-
-// 빈 입력일 때의 "자주 쓰는 것"(SRCH-07) — 매칭 없이 frecency만으로 상위 n개.
-export function frequent(items, picks, n = 4, now = Date.now()) {
-  return items
-    .map((it) => ({ ...it, final: score(1, picks.get?.(it.key) ?? picks[it.key], now) }))
-    .filter((it) => it.final > 1) // 한 번도 고르지 않은 것은 빼야 한다 — 없으면 힌트를 보인다
-    .sort((a, b) => b.final - a.final)
-    .slice(0, n);
-}

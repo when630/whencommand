@@ -24,8 +24,6 @@ export default {
     return cache.length;
   },
   count: () => cache.length,
-  // 빈 입력의 "자주 쓰는 것"이 고를 후보(SRCH-07)
-  all: () => cache.map(toItem),
   async query(q) {
     const out = [];
     for (const a of cache) {
