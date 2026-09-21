@@ -74,9 +74,11 @@ function render(result) {
   requestAnimationFrame(() => window.whencommand.resize($panel.offsetHeight));
 }
 
+let lastQueried = null; // 마지막으로 검색한 문자열 — 한글 IME가 조합을 확정하며 내는 값 같은 input을 걸러 낸다
 async function query() {
   const my = ++seq;
   const q = $q.value;
+  lastQueried = q;
   $hint.textContent = '';
   const result = await window.whencommand.query(q, my);
   if (my !== seq) return; // 더 새 입력이 있었다
@@ -175,7 +177,9 @@ function outputKeys(e) {
   }
 }
 
-$q.addEventListener('input', query);
+// 한글 IME는 ↑↓·Enter로 조합이 확정될 때 **값이 같은 input을 한 번 더** 낸다. 그걸 새 입력으로 보면 방금 옮긴 커서가 0으로 돌아가고
+// 목록이 다시 그려져 깜빡인다 — 값이 안 바뀌었으면 검색하지 않는다
+$q.addEventListener('input', () => { if ($q.value !== lastQueried) query(); });
 document.addEventListener('keydown', (e) => {
   if (out) return outputKeys(e);
   if (e.key === 'Escape') { e.preventDefault(); window.whencommand.hide(); return; }
