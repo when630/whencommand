@@ -209,6 +209,11 @@ export default {
     return p;
   },
 
+  // macOS는 getFileIcon이 .app 번들의 아이콘을 직접 읽어 기본 그림으로 떨어지지 않는다 — 폴백이 없다(win32의 exe 리소스 추출에 대응)
+  extractIcons() {
+    return Promise.resolve({});
+  },
+
   // 매니페스트의 verify 경로에 든 ~와 $VAR를 푼다(LINK-04)
   expandPath(p) {
     return String(p)

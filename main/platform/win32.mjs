@@ -221,6 +221,42 @@ export default {
     }
   },
 
+  // app.getFileIcon이 **기본 실행 파일 아이콘**을 돌려준 exe의 진짜 아이콘(D-26 보충, 실측 2026-09-21).
+  // 셸 아이콘 캐시에 없는 exe(탐색기가 한 번도 안 보여 준 설치본 — 형제 앱 다섯이 그랬다)는 셸이 파일을 열어 보지 않고
+  // 종류별 기본 그림을 준다. .NET ExtractAssociatedIcon은 exe 리소스를 직접 읽어 32px를 준다. PowerShell 한 번에 여러 경로 —
+  // 프로세스 시작이 ~400ms라 경로마다 띄우지 않는다. 결과는 { path: dataUrl } (실패한 경로는 빠진다). 실패가 앱을 멈추지 않는다
+  extractIcons(paths) {
+    const list = paths.filter((p) => /\.exe$/i.test(p));
+    if (!list.length) return Promise.resolve({});
+    const script = [
+      'Add-Type -AssemblyName System.Drawing',
+      '[Console]::OutputEncoding = [Text.Encoding]::UTF8',
+      "foreach ($p in $env:WC_ICON_PATHS.Split('|')) {", // 문자열 Split — 정규식 -split은 이스케이프가 JS·PS 두 겹이라 깨지기 쉽다
+      '  try {',
+      '    $i = [System.Drawing.Icon]::ExtractAssociatedIcon($p)',
+      '    $ms = New-Object IO.MemoryStream',
+      '    $i.ToBitmap().Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)',
+      '    Write-Output ($p + "`t" + [Convert]::ToBase64String($ms.ToArray()))',
+      '  } catch {}',
+      '}',
+    ].join('\n');
+    const encoded = Buffer.from(script, 'utf16le').toString('base64'); // -EncodedCommand — 따옴표·cp949 문제를 피한다
+    return new Promise((resolve) => {
+      execFile('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
+        { encoding: 'utf8', timeout: 8000, maxBuffer: 16 * 1024 * 1024, windowsHide: true, env: { ...process.env, WC_ICON_PATHS: list.join('|') } },
+        (err, stdout) => {
+          const out = {};
+          if (!err) {
+            for (const line of String(stdout).split(/\r?\n/)) {
+              const i = line.indexOf('\t');
+              if (i > 0 && line.length > i + 1) out[line.slice(0, i)] = `data:image/png;base64,${line.slice(i + 1).trim()}`;
+            }
+          }
+          resolve(out);
+        });
+    });
+  },
+
   // 매니페스트의 verify 경로에 든 %VAR%를 푼다(LINK-04). 모르는 변수는 그대로 둔다 — 그러면 existsSync가 false를 돌려준다
   expandPath(p) {
     return String(p).replace(/%([^%]+)%/g, (whole, name) => process.env[name] ?? process.env[name.toUpperCase()] ?? whole);

@@ -92,6 +92,42 @@ export function bootstrap() {
       ctx.quitting = true;
       return app.exit(onOk && readOn && offOk && !readOff ? 0 : 1);
     }
+    if (process.argv.includes('--probe-icons')) {
+      // 실측 — app.getFileIcon이 주어진 실행 파일에서 실제 아이콘을 주는가, 기본 실행 파일 아이콘을 주는가.
+      // ICON_PROBE_PATHS=a;b;c (없으면 형제 앱 매니페스트의 설치본 경로). 크기별 md5를 찍고 PNG를 temp에 남긴다
+      const crypto = await import('node:crypto');
+      const os = await import('node:os');
+      const md5 = (img) => crypto.createHash('md5').update(img.toPNG()).digest('hex').slice(0, 8);
+      const generic = {};
+      for (const size of ['small', 'normal', 'large']) {
+        try { generic[size] = md5(await app.getFileIcon(path.join(os.tmpdir(), 'zz-nonexistent-probe.exe'), { size })); } catch { generic[size] = '-'; }
+      }
+      console.log(`ICON_PROBE generic(없는 exe) ${JSON.stringify(generic)}`);
+      const paths = process.env.ICON_PROBE_PATHS ? process.env.ICON_PROBE_PATHS.split(';') : ctx.sources.siblings.apps().map((m) => m.path).filter(Boolean);
+      for (const p of paths) {
+        const line = [p, fs.existsSync(p) ? 'exists' : 'MISSING'];
+        for (const size of ['small', 'normal', 'large']) {
+          try {
+            const img = await app.getFileIcon(platform.resolveIconPath(p), { size });
+            const h = md5(img);
+            line.push(`${size}=${img.getSize().width}px:${h}${h === generic[size] ? '(=generic)' : ''}`);
+            fs.writeFileSync(path.join(os.tmpdir(), `probe-${path.basename(p)}-${size}.png`), img.toPNG());
+          } catch (e) { line.push(`${size}=ERR ${e.message}`); }
+        }
+        console.log('ICON_PROBE ' + line.join(' '));
+      }
+      // 앱이 실제로 쓰는 경로(icons.mjs — 기본 아이콘이면 platform.extractIcons 폴백)로도 한 번
+      const viaCache = await ctx.icons.get(paths);
+      for (const p of paths) {
+        const url = viaCache[p];
+        const h = url ? crypto.createHash('md5').update(url).digest('hex').slice(0, 8) : 'null';
+        const g = await app.getFileIcon(path.join(os.tmpdir(), 'zz-nonexistent-probe.exe'), { size: 'normal' }).then((i) => i.toDataURL()).catch(() => '');
+        console.log(`ICON_PROBE cache ${path.basename(p)} ${url === g ? 'GENERIC' : 'real'} ${h} ${url ? url.length + 'B' : ''}`);
+        if (url && url !== g) fs.writeFileSync(path.join(os.tmpdir(), `probe-cache-${path.basename(p)}.png`), Buffer.from(url.split(',')[1], 'base64'));
+      }
+      ctx.quitting = true;
+      return app.exit(0);
+    }
     if (process.argv.includes('--smoke')) return smoke(ctx);
     firstRun(ctx);
   });
