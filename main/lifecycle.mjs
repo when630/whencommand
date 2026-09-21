@@ -80,6 +80,18 @@ export function bootstrap() {
       ctx.quitting = true;
       return app.exit(st.status === 'error' ? 1 : 0);
     }
+    if (process.argv.includes('--probe-login')) {
+      // 실측 #2(PLAT-05) — 미서명 설치본에서 로그인 항목이 실제로 켜지는가. 켜고 되읽고, 끄고 되읽고, 원래대로 두고 끝낸다
+      const before = platform.getLoginItem(app);
+      const onOk = platform.setLoginItem(app, true);
+      const readOn = platform.getLoginItem(app);
+      const offOk = platform.setLoginItem(app, false);
+      const readOff = platform.getLoginItem(app);
+      if (before) platform.setLoginItem(app, true);
+      console.log(`LOGIN_PROBE packaged=${app.isPackaged} before=${before} setOn=${onOk} readOn=${readOn} setOff=${offOk} readOff=${readOff}`);
+      ctx.quitting = true;
+      return app.exit(onOk && readOn && offOk && !readOff ? 0 : 1);
+    }
     if (process.argv.includes('--smoke')) return smoke(ctx);
     firstRun(ctx);
   });
