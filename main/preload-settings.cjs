@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('settings', {
   importSettings: () => ipcRenderer.invoke('settings:import'),
   resetRanking: () => ipcRenderer.invoke('store:reset'),
   resetPosition: () => ipcRenderer.invoke('panel:resetPosition'),
+  updateCheck: () => ipcRenderer.invoke('update:check'),
+  updateInstall: () => ipcRenderer.invoke('update:install'),
   resize: (h) => ipcRenderer.send('settings:resize', h),
   close: () => ipcRenderer.send('settings:close'),
   onRefresh: (cb) => ipcRenderer.on('settings:refresh', () => cb()),

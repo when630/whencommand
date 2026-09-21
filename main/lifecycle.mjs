@@ -12,6 +12,7 @@ import { createPanel } from './panel.mjs';
 import { createToast } from './toast.mjs';
 import { createSettingsWin } from './settings-win.mjs';
 import { initLog, log, traceQuit } from './log.mjs';
+import { setupUpdater, updateLine } from './update.mjs';
 import { registerIpc, runScript } from './ipc.mjs';
 import { SCRIPTS_DIR } from './sources/scripts.mjs';
 
@@ -55,7 +56,28 @@ export function bootstrap() {
     bindHotkey(ctx);
     makeTray(ctx);
 
+    // 알림 한 줄 — 첫 실행 안내·업데이트 준비. 스모크에서는 띄우지 않는다
+    ctx.notify = (title, body, { onClick } = {}) => {
+      if (ctx.smoke || process.argv.includes('--smoke')) return true;
+      try {
+        if (!Notification.isSupported()) return false;
+        const n = new Notification({ title, body });
+        if (onClick) n.on('click', onClick);
+        n.show();
+        return true;
+      } catch { return false; }
+    };
+
     await ctx.sources.ready(); // 앱 목록 — 실측 ~100ms(8 병렬). 단축키는 이미 살아 있다
+    setupUpdater(ctx); // 릴리스 확인 — 60초 뒤 첫 확인, 이후 하루 한 번(main/update.mjs). 개발 실행은 unsupported
+    if (process.argv.includes('--check-update')) {
+      // 설치본에서 업데이트 경로가 실제로 도는지 보는 모드(REL-02). 결과를 찍고 끝낸다
+      const st = await ctx.checkForUpdate();
+      console.log(`UPDATE_CHECK status=${st.status} version=${st.version ?? '-'} canAutoUpdate=${platform.canAutoUpdate} line=${updateLine(st, { canAutoUpdate: platform.canAutoUpdate, current: app.getVersion() })}`);
+      if (st.rawError) console.log(`UPDATE_RAW ${st.rawError}`);
+      ctx.quitting = true;
+      return app.exit(st.status === 'error' ? 1 : 0);
+    }
     if (process.argv.includes('--smoke')) return smoke(ctx);
     firstRun(ctx);
   });
@@ -167,6 +189,12 @@ function makeTray(ctx) {
       { label: '입력줄 위치 되돌리기', click: () => ctx.panel?.resetPosition() },
       { type: 'separator' },
       { label: '설정…', click: () => ctx.settingsWin?.show() }, // D-16
+      {
+        // 업데이트 상태는 늘 보인다 — 새 버전이 준비돼도 말이 없으면 영영 안 깔린다(REL-02, whenwork 승계)
+        label: updateLine(ctx.update ?? {}, { canAutoUpdate: platform.canAutoUpdate, current: app.getVersion() }),
+        enabled: ctx.update?.status === 'ready' || ctx.update?.status === 'available',
+        click: () => ctx.installUpdate?.(),
+      },
       { type: 'separator' },
       { label: 'WHENCOMMAND 종료', role: 'quit' },
     ]);
@@ -180,11 +208,10 @@ function makeTray(ctx) {
 function firstRun(ctx) {
   if (ctx.settings.get('firstRunDone')) return;
   ctx.settings.set('firstRunDone', true);
-  if (!Notification.isSupported()) return;
   const label = platform.hotkeyLabel(ctx.hotkey);
   const hint = platform.firstRunHint(label);
   let body = hint.body;
   if (!ctx.hotkeyOk) body += `\n${label} 를 등록하지 못했습니다 — 다른 앱이 쓰고 있습니다.`;
   else if (ctx.hotkeyConflict) body += `\n${label} 는 ${ctx.hotkeyConflict.app}도 쓰고 있어 둘이 함께 뜹니다. ${ctx.hotkeyConflict.howTo}.`;
-  new Notification({ title: hint.title, body }).show();
+  ctx.notify(hint.title, body);
 }

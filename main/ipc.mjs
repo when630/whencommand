@@ -5,6 +5,7 @@ import { platform } from './platform/index.mjs';
 import { route, locate, lineCount } from './scripts.mjs';
 import { SCRIPTS_DIR } from './sources/scripts.mjs';
 import { APPS_DIR } from './sources/siblings.mjs';
+import { updateLine } from './update.mjs';
 
 // 스크립트 실행 → 출력 길이로 가른다(D-17). 3줄 이하 성공은 토스트(한 줄이면 복사), 그 밖은 패널이 자란다(EXT-04·05).
 // 패널은 이미 숨겨진 상태다 — 긴 출력·실패일 때만 다시 보인다.
@@ -100,8 +101,16 @@ export function registerIpc(ctx) {
         skipped: sib.skipped().map((s) => ({ file: s.file.split(/[\\/]/).pop(), error: s.error })),
       },
       store: { file: ctx.store.file },
+      update: { ...(ctx.update ?? { status: 'idle' }), line: updateLine(ctx.update ?? {}, { canAutoUpdate: platform.canAutoUpdate, current: app.getVersion() }), canAutoUpdate: platform.canAutoUpdate },
     };
   });
+
+  // ── 업데이트(REL-02, whenwork 승계). Windows는 설치(재시작), 미서명 macOS는 받는 곳 열기 — 돌려주는 값이 그 차이를 말한다
+  ipcMain.handle('update:check', async () => {
+    const st = await (ctx.checkForUpdate?.() ?? Promise.resolve(ctx.update ?? { status: 'idle' }));
+    return { ok: true, ...st, line: updateLine(st ?? {}, { canAutoUpdate: platform.canAutoUpdate, current: app.getVersion() }) };
+  });
+  ipcMain.handle('update:install', () => ({ ok: true, installing: !!ctx.installUpdate?.() }));
 
   // PLAT-02: 새 조합의 등록 성공까지 확인한다. 실패하면 저장하지 않고 이전 조합으로 되돌린다 —
   // 저장해 두면 다음 실행에서도 안 잡히는 조합으로 조용히 시작한다.

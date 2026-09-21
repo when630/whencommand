@@ -20,8 +20,8 @@
 
 **Phase 3 — 앱·스크립트·파일·계산이 한 목록에 온다.** `⌘Space` → 입력줄 → 앱·스크립트를 초성·퍼지·자판 교정으로 찾고, 3글자부터 파일이 늦게 합류해(D-11·D-21) `Enter`로 실행. 스크립트 출력은 길이로 갈려 토스트 또는 패널 출력 모드(D-17). `npm run smoke`가 사람 손 없이 끝까지 돌고 렌더링을 PNG로 찍는다 — `SMOKE_RUN=<스크립트>`면 실제로 실행해 출력 분기까지 찍는다.
 
-끝난 것: Phase 0 실측(10개 중 9개 답 — macOS 2026-09-19, Windows 2026-09-21, `docs/03 §11`), 시안 ㉤ 확정(D-15), 아이콘, 양 OS `smoke` 통과, Windows 실사용 첫날의 다듬기(D-18·D-19, 하단 바 제거), EXT(D-20), FILE(D-21 — Windows Search 실기기, mdfind 쪽은 미검증), LINK 양쪽(D-22 — `manifest.mjs`·`sources/siblings.mjs`; WHENNOTE에 스킴·매니페스트 붙여 Windows 실기기 검증; 규약 레포 `github.com/when630/when-protocol`), 설정 창(D-16 보충 — `settings-win.mjs`, 내장 명령 `설정`).
-남은 것(순서대로): `update.mjs`(whenwork 복사, 설정 창 정보 섹션에 업데이트 줄) → CI(REL-03, 미룸) → 릴리스(패키징 후 실측 #2) → macOS에서 FILE·LINK 검증(오픈이슈 #8) → 나머지 형제 앱 넷에 스킴(when-protocol README 세 단계).
+끝난 것: Phase 0 실측(10개 중 9개 답 — macOS 2026-09-19, Windows 2026-09-21, `docs/03 §11`), 시안 ㉤ 확정(D-15), 아이콘, 양 OS `smoke` 통과, Windows 실사용 첫날의 다듬기(D-18·D-19, 하단 바 제거), EXT(D-20), FILE(D-21 — Windows Search 실기기, mdfind 쪽은 미검증), LINK 양쪽(D-22 — `manifest.mjs`·`sources/siblings.mjs`; WHENNOTE에 스킴·매니페스트 붙여 Windows 실기기 검증; 규약 레포 `github.com/when630/when-protocol`), 설정 창(D-16 보충 — `settings-win.mjs`, 내장 명령 `설정`), `update.mjs`(whenwork 복사 — 트레이·설정 창에 업데이트 줄, `--check-update` 모드).
+남은 것(순서대로): CI(REL-03) → 릴리스(패키징 → `--check-update`로 피드 확인 → 실측 #2 → GitHub Releases 드래프트) → macOS에서 FILE·LINK 검증(오픈이슈 #8) → 나머지 형제 앱 넷에 스킴(when-protocol README 세 단계).
 
 ## 밟으면 아픈 함정 (전부 실측으로 확인된 것 — `docs/03 §11`)
 

@@ -59,7 +59,18 @@ function render() {
   // 정보
   $('ver').textContent = `WHENCOMMAND ${st.version}`;
   $('verDesc').innerHTML = `${st.packaged ? '설치본' : '개발 실행'} · ${esc(st.platform)} · 랭킹 <code>${esc(st.store.file)}</code>`;
+  renderUpdate(st.update);
   fit();
+}
+
+// 업데이트 줄(REL-02) — 트레이와 같은 문구(update.mjs updateLine). 버튼은 상태에 따라 확인·설치·받기가 된다
+function renderUpdate(u) {
+  const el = $('updLine');
+  el.textContent = u.line;
+  el.className = `d${u.status === 'error' ? ' bad' : u.status === 'ready' || u.status === 'available' ? ' ok' : ''}`;
+  const b = $('upd');
+  b.textContent = u.status === 'ready' ? (u.canAutoUpdate ? '지금 설치' : '받는 곳 열기') : u.status === 'available' && !u.canAutoUpdate ? '받는 곳 열기' : '업데이트 확인';
+  b.classList.toggle('busy', u.status === 'checking' || u.status === 'downloading');
 }
 
 async function load() {
@@ -159,6 +170,15 @@ $('resetRank').addEventListener('click', async () => {
   b.textContent = '초기화'; b.classList.remove('confirm');
   const r = await window.settings.resetRanking();
   msg(r.ok ? '랭킹을 지웠습니다 — 처음 상태입니다' : '지우지 못했습니다', r.ok ? 'ok' : 'bad');
+});
+
+$('upd').addEventListener('click', async () => {
+  const u = st.update;
+  if (u.status === 'ready' || (u.status === 'available' && !u.canAutoUpdate)) { await window.settings.updateInstall(); return; }
+  $('updLine').textContent = '업데이트 확인 중…';
+  const r = await window.settings.updateCheck();
+  st.update = { ...st.update, ...r };
+  renderUpdate(st.update);
 });
 
 $('close').addEventListener('click', () => window.settings.close());
