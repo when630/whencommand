@@ -17,12 +17,13 @@ let watcher = null;
 let watchTimer = null;
 let onChange = null;
 
-// 매니페스트에 적힌 앱이 실제로 있는가(LINK-04). 이 OS 항목이 없으면 이 OS에는 없는 앱이다. verify 자체가 없으면 확인할 길이 없어 있다고 본다
-function installed(m) {
-  if (!m.verify) return true;
+// 매니페스트에 적힌 앱이 실제로 있는가(LINK-04). 이 OS 항목이 없으면 이 OS에는 없는 앱이다. verify 자체가 없으면 확인할 길이 없어 있다고 본다.
+// 있으면 그 경로를 돌려준다 — 아이콘(D-26)이 같은 경로를 쓴다. verify가 없으면 '' (설치됐다고 보되 아이콘은 없다)
+function installedPath(m) {
+  if (!m.verify) return '';
   const p = m.verify[platform.name];
-  if (!p) return false;
-  try { return fs.existsSync(platform.expandPath(p)); } catch { return false; }
+  if (!p) return null;
+  try { const full = platform.expandPath(p); return fs.existsSync(full) ? full : null; } catch { return null; }
 }
 
 function scan() {
@@ -37,8 +38,9 @@ function scan() {
     try { text = fs.readFileSync(file, 'utf8').replace(/^﻿/, ''); } catch (err) { bad.push({ file, error: err.message }); continue; }
     const r = parseManifest(text);
     if (!r.ok) { bad.push({ file, error: r.error }); continue; }
-    if (!installed(r.manifest)) { bad.push({ file, error: '설치돼 있지 않다' }); continue; }
-    found.push(r.manifest);
+    const exe = installedPath(r.manifest);
+    if (exe === null) { bad.push({ file, error: '설치돼 있지 않다' }); continue; }
+    found.push({ ...r.manifest, path: exe }); // path: 설치본 실행 파일(.exe·.app) — OS 아이콘을 물을 자리
   }
   return { apps: found, skipped: bad };
 }
@@ -68,7 +70,8 @@ function toItem(m, c, rest, base, positions, via) {
     app: m.name,
     title: c.title,
     subtitle: rest ? `“${rest}”` : need ? `뒤에 ${need}를 붙이세요` : c.description || null,
-    icon: m.name.replace(/^when/i, '')[0]?.toUpperCase() ?? '?',
+    icon: m.name.replace(/^when/i, '')[0]?.toUpperCase() ?? '?', // 아이콘이 오기 전, 못 뽑을 때의 글자
+    path: m.path || null, // OS 아이콘(D-26) — 렌더러가 이 경로로 icon:get을 묻는다
     base,
     positions,
     via,

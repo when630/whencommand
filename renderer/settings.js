@@ -8,6 +8,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 let st = null;
 let capturing = false; // 단축키 바꾸는 중 — 다음 키 조합을 받는다
 const opened = new Set(); // 사용법을 펼친 형제 앱 id — 다시 그려도(다시 읽기·refresh) 펼친 채로 남는다
+const iconCache = new Map(); // path → dataUrl | null. 입력줄과 같은 규칙(D-23·D-26): 먼저 글자를 그리고 아이콘은 도착하는 대로 그 상자만 바꾼다
 
 function msg(text, kind = '') {
   const el = $('msg');
@@ -47,7 +48,7 @@ function render() {
     for (const s of st.siblings.apps) {
       // 사용법은 캡션 뒤에 접혀 있다(D-25) — 상태표는 한 줄로 남고, 궁금한 사람만 연다
       const on = opened.has(s.id);
-      rows.push(`<div class="sib can${on ? ' open' : ''}" data-app="${esc(s.id)}" title="${on ? '사용법 접기' : '사용법 펼치기'}"><span class="ic">${esc(s.icon)}</span><span class="nm">${esc(s.name)}</span><span class="cnt">${s.commands.length}개 명령 · <span class="cap">사용법</span><span class="chev">›</span></span><span class="st ok">연결됨</span></div>`);
+      rows.push(`<div class="sib can${on ? ' open' : ''}" data-app="${esc(s.id)}" title="${on ? '사용법 접기' : '사용법 펼치기'}">${sibIcon(s)}<span class="nm">${esc(s.name)}</span><span class="cnt">${s.commands.length}개 명령 · <span class="cap">사용법</span><span class="chev">›</span></span><span class="st ok">연결됨</span></div>`);
       rows.push(`<div class="how${on ? ' open' : ''}" data-how="${esc(s.id)}">` +
         `<div class="lead"><kbd>${esc(st.hotkeyLabel)}</kbd> 를 누르고 아래처럼 칩니다. 제목 뒤에 띄어 쓴 것이 <span class="arg">‹ ›</span> 자리에 들어갑니다 — <code>${esc(s.name.toLowerCase())}</code> 만 쳐도 이 앱 명령이 전부 나옵니다</div>` +
         s.commands.map((c) => {
@@ -65,6 +66,7 @@ function render() {
       `<div class="opt" style="padding-top:4px"><div class="l"><div class="d">규약: <code>when630/when-protocol</code></div></div><span class="btn" id="refreshLists">다시 읽기</span><span class="btn" id="openSiblings">폴더 열기</span></div>`;
     $('refreshLists').addEventListener('click', async () => { await window.settings.refreshLists(); await load(); msg('목록을 다시 읽었습니다', 'ok'); });
     $('openSiblings').addEventListener('click', () => window.settings.openSiblings());
+    fetchSibIcons(sec, st.siblings.apps);
     for (const row of sec.querySelectorAll('.sib.can')) {
       row.addEventListener('click', () => {
         const id = row.dataset.app;
@@ -85,6 +87,23 @@ function render() {
   $('verDesc').innerHTML = `${st.packaged ? '설치본' : '개발 실행'} · ${esc(st.platform)} · 랭킹 <code>${esc(st.store.file)}</code>`;
   renderUpdate(st.update);
   fit();
+}
+
+// 형제 앱 아이콘(D-26) — 설치본 경로로 OS 아이콘을 받는다. 받기 전·못 뽑는 것은 시리즈 색 글자 상자
+function sibIcon(s) {
+  const url = s.path && iconCache.get(s.path);
+  return url ? `<span class="ic img"><img src="${url}" alt=""></span>` : `<span class="ic">${esc(s.icon)}</span>`;
+}
+async function fetchSibIcons(sec, apps) {
+  const want = [...new Set(apps.map((s) => s.path).filter((p) => p && !iconCache.has(p)))];
+  if (!want.length) return;
+  const got = await window.settings.icons(want);
+  for (const [p, url] of Object.entries(got)) iconCache.set(p, url);
+  for (const s of apps) {
+    const row = sec.querySelector(`.sib[data-app="${s.id}"]`);
+    const ic = row?.querySelector('.ic');
+    if (ic && !ic.classList.contains('img') && s.path && iconCache.get(s.path)) ic.outerHTML = sibIcon(s);
+  }
 }
 
 // 업데이트 줄(REL-02) — 트레이와 같은 문구(update.mjs updateLine). 버튼은 상태에 따라 확인·설치·받기가 된다

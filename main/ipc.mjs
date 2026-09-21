@@ -104,6 +104,7 @@ export function registerIpc(ctx) {
           id: m.id,
           name: m.name,
           icon: m.name.replace(/^when/i, '')[0]?.toUpperCase() ?? '?',
+          path: m.path || null, // 설치본 경로 — 설정 창이 icon:get으로 실제 아이콘을 받는다(D-26)
           commands: m.commands.map((c) => ({ id: c.id, ...usageOf(c) })),
         })),
         skipped: sib.skipped().map((s) => ({ file: s.file.split(/[\\/]/).pop(), error: s.error })),

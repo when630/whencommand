@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('settings', {
   resetPosition: () => ipcRenderer.invoke('panel:resetPosition'),
   updateCheck: () => ipcRenderer.invoke('update:check'),
   updateInstall: () => ipcRenderer.invoke('update:install'),
+  icons: (paths) => ipcRenderer.invoke('icon:get', paths), // 형제 앱 설치본 아이콘(D-26) — 입력줄과 같은 캐시
   resize: (h) => ipcRenderer.send('settings:resize', h),
   close: () => ipcRenderer.send('settings:close'),
   onRefresh: (cb) => ipcRenderer.on('settings:refresh', () => cb()),

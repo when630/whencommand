@@ -32,7 +32,9 @@ function highlight(title, positions) {
 // 아이콘은 화면에 보이는 줄만 묻고 세션 동안 기억한다(D-23). 도착하면 그 줄의 상자만 바꾼다 — 목록을 다시 그리지 않는다.
 const iconCache = new Map(); // path → dataUrl | null
 function iconPath(it) {
-  return (it.source === 'apps' || it.source === 'files') ? it.action?.path ?? null : null;
+  if (it.source === 'apps' || it.source === 'files') return it.action?.path ?? null;
+  if (it.source === 'siblings') return it.path ?? null; // 형제 앱 설치본의 아이콘(D-26) — 매니페스트 verify 경로
+  return null;
 }
 function avatar(it) {
   const p = iconPath(it);
