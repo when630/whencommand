@@ -27,6 +27,7 @@
     "appId": "com.when630.whencommand",
     "productName": "WHENCOMMAND",
     "files": ["main/**/*", "renderer/**/*", "build/*.png"],
+    "asarUnpack": ["main/platform/win32-search.ps1"],
     "artifactName": "WHENCOMMAND-${version}-${os}-${arch}.${ext}",
     "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "icon": "build/icon.png" },
     "nsis": {

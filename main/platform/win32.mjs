@@ -126,7 +126,9 @@ export default {
   // stdin/stdout으로 질의한다(win32-search.ps1). 실측 2026-09-21: 질의 8~75ms. 서비스(WSearch)가 꺼져 있으면 Open이 던지고
   // ready가 false로 온다 — 그 사실을 status()로 알려 한 줄 안내가 된다(FILE-05).
   createFileSearch() {
-    const script = path.join(HERE, 'win32-search.ps1');
+    // 패키징본에서는 이 파일이 app.asar 안에 있어 PowerShell이 읽지 못한다(2026-09-21 패키징 smoke에서 "파일 검색 불가").
+    // package.json build.asarUnpack이 이 파일을 app.asar.unpacked/에 풀어 두므로 경로만 그쪽으로 돌린다
+    const script = path.join(HERE, 'win32-search.ps1').replace(/app\.asar([\\/])/, 'app.asar.unpacked$1');
     let child = null;
     let buf = '';
     let nextId = 1;
@@ -168,8 +170,9 @@ export default {
             }
           });
           child.on('error', (e) => { status = { ok: false, reason: `PowerShell을 띄우지 못했습니다 — ${e.message}` }; resolve(status); });
-          child.on('exit', () => {
+          child.on('exit', (code) => {
             if (status.ok) status = { ok: false, reason: 'Windows Search 질의 프로세스가 끝났습니다 — 앱을 다시 시작하면 되살아납니다' };
+            else if (!status.ok && !/Windows Search를 쓸 수 없습니다/.test(status.reason)) status = { ok: false, reason: `Windows Search 질의 프로세스가 시작 직후 끝났습니다 (exit ${code}) — 스크립트를 읽지 못했을 수 있습니다` };
             for (const p of pending.values()) p([]);
             pending.clear();
             child = null;
