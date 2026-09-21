@@ -40,12 +40,14 @@ export function createSources(ctx) {
       for (const s of fast) results.push(...(await s.query(q, ctx)));
       const items = rank(results, picks).slice(0, MAX_ROWS);
       const wantFiles = q.length >= files.minChars; // FILE-03
-      // 느린 공급원은 기다리지 않는다(SRCH-08). 도착하면 같은 순번일 때만 다시 순위를 매겨 밀어 넣는다
+      // 느린 공급원은 기다리지 않는다(SRCH-08). 도착하면 같은 순번일 때만 점수를 붙여 보내고, **어디에 끼울지는 렌더러가 정한다** —
+      // 커서까지의 행은 고정하고 그 아래만 순위로 섞는다(D-11·D-21). 여기서 전체를 다시 매기면 방향키를 누른 직후 커서가 튄다
       if (wantFiles) {
         files.late(q).then((more) => {
           if (!more || !more.length || seq !== lastSeq || ctx.quitting) return;
-          const merged = rank([...results, ...more], ctx.store.picks()).slice(0, MAX_ROWS);
-          ctx.panel?.win.webContents.send('query:more', { seq, items: remember(merged) });
+          const ranked = rank(more, ctx.store.picks()).slice(0, MAX_ROWS);
+          last = new Map([...last, ...ranked.map((it) => [it.key, it])]); // 앞서 보낸 것에 더한다 — 렌더러가 무엇을 남기든 찾을 수 있게
+          ctx.panel?.win.webContents.send('query:more', { seq, items: ranked });
         });
       }
       return { seq, query: q, items: remember(items), empty: false, notice: wantFiles ? files.notice() : null };

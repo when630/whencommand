@@ -84,14 +84,22 @@ async function query() {
   render(result);
 }
 
-// 느린 공급원(파일)이 늦게 합류한다(D-11). 순번이 다르면 버린다. 선택은 **항목을 따라간다** — 고르고 있던 것이 밀려도 커서는 그 위에 남는다
+// 느린 공급원(파일)이 늦게 합류한다(D-11). 순번이 다르면 버린다. **커서까지의 행은 그대로 두고** 그 아래만 점수순으로 섞는다 —
+// 방향키를 누른 직후 도착해도 보고 있던 것이 밀리거나 커서가 튀지 않는다. 첫 줄이 고정되는 대가로 더 잘 맞는 파일은 둘째 줄부터 온다
 function more(r) {
-  if (r.seq !== seq || out) return;
-  const selKey = items[sel]?.key;
-  items = r.items;
-  const i = items.findIndex((it) => it.key === selKey);
-  sel = i >= 0 ? i : 0;
-  render(lastResult);
+  if (r.seq !== seq || out || !r.items.length) return;
+  const have = new Set(items.map((it) => it.key));
+  const fresh = r.items.filter((it) => !have.has(it.key));
+  if (!fresh.length) return;
+  const fixed = items.slice(0, sel + 1);
+  const rest = [...items.slice(sel + 1), ...fresh].sort((a, b) => b.final - a.final);
+  items = [...fixed, ...rest].slice(0, 8); // PANEL-08
+  // 고정된 행은 다시 그리지 않는다 — 깜빡임은 여기서 났다
+  const rows = $list.querySelectorAll('.row');
+  rows.forEach((el, i) => { if (i > sel) el.remove(); });
+  $list.insertAdjacentHTML('beforeend', items.slice(sel + 1).map((it, i) => row(it, sel + 1 + i)).join(''));
+  $hint.textContent = `${items.length}개`;
+  requestAnimationFrame(() => window.whencommand.resize($panel.offsetHeight));
 }
 
 function move(d) {
