@@ -58,7 +58,7 @@ export default {
   },
 
   // 설치된 앱 목록(LNCH-03) — 시작 메뉴 .lnk와 UWP(Get-StartApps) **둘 다** 본다. 하나만 보면 반쪽이다.
-  // 미검증(03 §11 #9): Get-StartApps가 .lnk 항목까지 돌려주면 그것 하나로 충분할 수 있다.
+  // 실측 #9(2026-09-21): .lnk 105 + UWP 42 → 137. 스토어 앱 42개는 .lnk에 없다.
   async listApps() {
     const out = new Map();
     const walk = (dir) => {
@@ -99,6 +99,38 @@ export default {
       return true;
     }
     return !(await shell.openPath(p));
+  },
+
+  // 스크립트 실행기(EXT-03) — 확장자로 정한다. Windows는 .ps1(PowerShell)·.cmd/.bat(cmd). 모르는 확장자는 null.
+  // ⚠ 한국어 Windows의 콘솔 코드 페이지는 cp949라, 출력 인코딩을 UTF-8로 못 박지 않으면 한글 출력이 전부 깨진다.
+  //   그래서 -File 대신 -Command로 감싸 [Console]::OutputEncoding을 먼저 세운다. cmd는 chcp 65001.
+  scriptRunner(file) {
+    const ext = path.extname(file).toLowerCase();
+    if (ext === '.ps1') {
+      const quoted = `'${file.replace(/'/g, "''")}'`;
+      return {
+        cmd: 'powershell',
+        args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command',
+          // 스크립트가 없거나 마지막 명령이 실패하면 $?가 false다 — $LASTEXITCODE만 보면 0으로 끝나 실패가 묻힌다(EXT-05)
+          `[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; $OutputEncoding=[System.Text.Encoding]::UTF8; & ${quoted}; if (-not $?) { exit 1 }; exit $LASTEXITCODE`],
+      };
+    }
+    if (ext === '.cmd' || ext === '.bat') return { cmd: 'cmd.exe', args: ['/d', '/s', '/c', `chcp 65001>nul & "${file}"`] };
+    return null;
+  },
+
+  // 첫 실행 때 폴더와 함께 만드는 예제(EXT-06). PowerShell 5.1은 BOM 없는 UTF-8을 cp949로 읽어 한글 주석이 깨지므로 BOM을 붙인다.
+  exampleScript() {
+    return {
+      name: '내-ip.ps1',
+      content: '\uFEFF' + [
+        '# name: 내 IP',
+        '# description: 이 PC의 로컬 IP — 한 줄이라 자동으로 복사됩니다',
+        '# icon: @',
+        '(Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway } | Select-Object -First 1).IPv4Address.IPAddress',
+        '',
+      ].join('\r\n'),
+    };
   },
 
   // 로그인 시 자동 실행. Windows는 실행 파일 경로가 그대로 등록된다.

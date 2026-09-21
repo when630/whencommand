@@ -18,10 +18,10 @@
 
 ## 현재 단계
 
-**Phase 1 — 최소 앱이 돈다.** `⌘Space` → 입력줄 → 앱을 초성·퍼지·자판 교정으로 찾아 `Enter`로 실행. 계산·단위 변환 포함. `npm run smoke`가 사람 손 없이 끝까지 돌고 렌더링을 PNG로 찍는다.
+**Phase 2 — 스크립트 명령까지 돈다.** `⌘Space` → 입력줄 → 앱·스크립트를 초성·퍼지·자판 교정으로 찾아 `Enter`로 실행. 계산·단위 변환 포함. 스크립트 출력은 길이로 갈려 토스트 또는 패널 출력 모드(D-17). `npm run smoke`가 사람 손 없이 끝까지 돌고 렌더링을 PNG로 찍는다 — `SMOKE_RUN=<스크립트>`면 실제로 실행해 출력 분기까지 찍는다.
 
-끝난 것: Phase 0 실측(10개 중 9개 답 — macOS 2026-09-19, Windows 2026-09-21, `docs/03 §11`), 시안 ㉤ 확정(D-15), 아이콘(`assets/icon/whencommand.png` → `tools/make-icon.mjs`), 양 OS에서 `smoke` 통과.
-남은 것(순서대로): `sources/scripts.mjs`(EXT) → `sources/siblings.mjs` + 별도 레포 `when-protocol`(LINK) → `sources/files.mjs`(FILE, mdfind/Windows Search) → 설정 창(D-16) → `update.mjs`(whenwork 복사) → 릴리스(패키징 후 실측 #2).
+끝난 것: Phase 0 실측(10개 중 9개 답 — macOS 2026-09-19, Windows 2026-09-21, `docs/03 §11`), 시안 ㉤ 확정(D-15), 아이콘, 양 OS `smoke` 통과, Windows 실사용 첫날의 다듬기(D-18·D-19, 하단 바 제거), EXT(D-20).
+남은 것(순서대로): `sources/siblings.mjs` + 별도 레포 `when-protocol`(LINK) → `sources/files.mjs`(FILE, mdfind/Windows Search) → 설정 창(D-16) → `update.mjs`(whenwork 복사) → CI(REL-03, 미룸) → 릴리스(패키징 후 실측 #2).
 
 ## 밟으면 아픈 함정 (전부 실측으로 확인된 것 — `docs/03 §11`)
 
@@ -33,7 +33,9 @@
 6. **초성 검색은 한글 이름에만 걸린다.** macOS 앱 이름은 거의 영문이라 `ㅋㄹ`로 Chrome을 못 찾는다(오픈이슈 #7 — 별칭). 영문을 한글 자판으로 친 것(`초개ㅡㄷ`→chrome)은 `keyboardToLatin`이 되돌린다
 7. **퍼지 점수에서 연속 매칭 가산을 단어 첫 글자보다 낮게 두면 흩어진 머리글자가 항상 이긴다** — `chr`이 Chrome보다 Cache Handler Runner에 붙었다. 지금은 같다(`search.mjs` 주석)
 8. **Windows는 `win.hide()`만으로 직전 창에 포커스가 돌아오지 않는다.** 항상-위·작업표시줄-제외 창을 숨기면 OS가 아무 창이나 고른다. `minimize()`를 거쳐 숨기면 돌아오고, 그래서 보일 때 `restore()`가 먼저다 — `platform/win32.mjs`. 단축키는 macOS와 반대로 **먼저 등록한 앱이 이기고** `register()`가 false를 정직하게 돌려준다(Raycast for Windows가 떠 있으면 FAIL)
-9. **직전 인스턴스를 죽인 직후 바로 띄우면 단일 인스턴스 락에 걸려 조용히 종료된다**(exit 0, 출력 없음). 몇 초 뒤 다시 띄우면 된다
+9. **직전 인스턴스를 죽인 직후 바로 띄우면 단일 인스턴스 락에 걸려 조용히 종료된다**(exit 0, 출력 없음). 몇 초 뒤 다시 띄우면 된다. `npm start`를 멈춰도 자식 `electron.exe`는 남는다 — whencommand 것만 골라 끄고, 개발 실행은 `Start-Process`로 셸과 분리해 띄운다
+10. **PowerShell은 실패해도 exit 0으로 끝날 수 있다.** 파일이 없거나 마지막 명령이 실패하면 `$LASTEXITCODE`가 비어 있다 — `$?`를 함께 본다(`platform/win32.mjs scriptRunner`). 그리고 한국어 콘솔은 cp949라 `[Console]::OutputEncoding`을 UTF-8로 먼저 세우지 않으면 한글 출력이 깨진다
+11. **스모크 경로 인자는 슬래시로.** Git Bash에서 `"$S\\$t.ps1"`는 `$t`가 확장되지 않아 `scripts$t.ps1`로 넘어갔다 — `cygpath -m`으로 `C:/…` 꼴을 쓴다
 
 ## 스택
 

@@ -1,10 +1,12 @@
-// renderer/panel.js — 입력줄 렌더러. 프레임워크 없음(형제 앱 동일). 상태는 넷: 질의·결과·선택·초기 정보.
+// renderer/panel.js — 입력줄 렌더러. 프레임워크 없음(형제 앱 동일). 상태는 다섯: 질의·결과·선택·초기 정보·스크립트 출력.
 // 결정은 메인이 한다 — 여기는 key를 돌려주고 그린다.
 'use strict';
 
 const $q = document.getElementById('q');
+const $qtag = document.getElementById('qtag');
 const $list = document.getElementById('list');
 const $extra = document.getElementById('extra');
+const $out = document.getElementById('out');
 const $hint = document.getElementById('hint');
 const $panel = document.getElementById('panel');
 
@@ -12,6 +14,7 @@ let info = { platform: 'darwin', hotkeyLabel: '', appCount: 0 };
 let items = [];
 let sel = 0;
 let seq = 0; // 늦게 도착한 응답을 버리기 위한 순번
+let out = null; // 출력 모드(EXT-04·05) — 스크립트 결과가 패널을 차지한다. null이면 보통의 입력 모드
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -26,6 +29,7 @@ function highlight(title, positions) {
 // 앱 아이콘은 v1에서 뽑지 않는다(LNCH-04는 다음) — 이름 첫 글자를 색 상자에 둔다. 색은 이름에서 결정적으로.
 function avatar(it) {
   if (it.source === 'calc') return `<span class="ic calc">=</span>`;
+  if (it.source === 'scripts') return `<span class="ic scr">${esc(it.icon || '$')}</span>`;
   let h = 0;
   for (const c of it.title) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   const hue = h % 360;
@@ -86,8 +90,59 @@ async function run(i = sel) {
   await window.whencommand.run(it.key);
 }
 
+// ── 출력 모드(시안 §5 ②·③) — 입력줄 자리에 스크립트 이름표, 아래는 고정폭 출력. 실패면 전부 --danger로.
+const MOD = () => (info.platform === 'darwin' ? '⌘' : 'Ctrl+');
+const shortPath = (p) => String(p).replace(/^.*[\\/](\.whencommand[\\/])/, '~/$1').replace(/\\/g, '/');
+
+function outputText() {
+  const failed = out.code !== 0;
+  return failed ? (out.stderr.trim() || out.stdout.trim() || '(출력 없음)') : out.stdout.replace(/\s+$/, '');
+}
+
+function renderOutput() {
+  const failed = out.code !== 0;
+  const text = outputText();
+  const n = text ? text.split('\n').length : 0;
+  $panel.classList.add('outmode');
+  $panel.classList.toggle('failed', failed);
+  $q.hidden = true;
+  $qtag.hidden = false;
+  $qtag.textContent = out.title;
+  $hint.textContent = `${failed ? '실패' : '완료'} · ${(out.ms / 1000).toFixed(1)}s`;
+  $list.innerHTML = '';
+  $extra.innerHTML = '';
+  const where = out.line != null ? `${shortPath(out.path)}:${out.line}` : shortPath(out.path);
+  $out.hidden = false;
+  $out.innerHTML = `<div class="out-head"><span class="st ${failed ? 'bad' : 'ok'}">exit ${out.code ?? '—'}</span><span>${failed ? 'stderr' : `${n}줄`}</span><span class="sp"></span>
+      <kbd>${MOD()}C</kbd><span>복사</span><kbd>↵</kbd><span>다시 실행</span>${failed ? `<kbd>${MOD()}↵</kbd><span>스크립트 열기</span>` : ''}<kbd>esc</kbd></div>
+    <pre class="outbody">${esc(text)}${failed ? `\n<span class="dim">${esc(where)}</span>` : ''}</pre>`;
+  requestAnimationFrame(() => window.whencommand.resize($panel.offsetHeight));
+}
+
+function leaveOutput() {
+  out = null;
+  $panel.classList.remove('outmode', 'failed');
+  $q.hidden = false;
+  $qtag.hidden = true;
+  $out.hidden = true;
+  $out.innerHTML = '';
+}
+
+function outputKeys(e) {
+  const mod = e.metaKey || e.ctrlKey;
+  if (e.key === 'Escape') { e.preventDefault(); window.whencommand.hide(); return; }
+  if (e.key === 'Enter' && mod) { e.preventDefault(); window.whencommand.openScript(out.path); window.whencommand.hide(); return; }
+  if (e.key === 'Enter') { e.preventDefault(); window.whencommand.rerun(out.path); return; }
+  if (mod && e.key.toLowerCase() === 'c' && !window.getSelection()?.toString()) {
+    e.preventDefault();
+    window.whencommand.copy(outputText());
+    $hint.textContent = '복사됨';
+  }
+}
+
 $q.addEventListener('input', query);
 document.addEventListener('keydown', (e) => {
+  if (out) return outputKeys(e);
   if (e.key === 'Escape') { e.preventDefault(); window.whencommand.hide(); return; }
   if (e.key === 'ArrowDown') { e.preventDefault(); move(1); return; }
   if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); return; }
@@ -104,9 +159,10 @@ $list.addEventListener('click', (e) => {
   if (el) run(Number(el.dataset.i));
 });
 
-// 다시 부르면 **항상 빈 줄**로 시작한다(PANEL-07)
-window.whencommand.onShown(() => { $q.value = ''; $q.focus(); query(); });
-window.whencommand.onHidden(() => { $q.value = ''; });
+// 다시 부르면 **항상 빈 줄**로 시작한다(PANEL-07). 출력 모드도 여기서 끝난다 — 다음 부름은 늘 입력줄이다
+window.whencommand.onShown(() => { leaveOutput(); $q.value = ''; $q.focus(); query(); });
+window.whencommand.onHidden(() => { leaveOutput(); $q.value = ''; });
+window.whencommand.onOutput((payload) => { out = payload; renderOutput(); });
 
 (async () => {
   info = await window.whencommand.init();

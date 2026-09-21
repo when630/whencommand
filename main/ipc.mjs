@@ -1,12 +1,30 @@
 // main/ipc.mjs — 렌더러 경계. 채널은 domain:action(03 §8). 렌더러는 항목의 key만 돌려주고, 무엇을 할지는 여기가 정한다.
 import { ipcMain, clipboard, shell } from 'electron';
 import { platform } from './platform/index.mjs';
+import { route, locate, lineCount } from './scripts.mjs';
+
+// 스크립트 실행 → 출력 길이로 가른다(D-17). 3줄 이하 성공은 토스트(한 줄이면 복사), 그 밖은 패널이 자란다(EXT-04·05).
+// 패널은 이미 숨겨진 상태다 — 긴 출력·실패일 때만 다시 보인다.
+export async function runScript(ctx, { title, icon }, file) {
+  const r = await ctx.sources.scripts.run(file);
+  if (route(r) === 'toast') {
+    const text = r.stdout.trim();
+    const copied = lineCount(text) === 1;
+    if (copied) clipboard.writeText(text);
+    ctx.toast?.show({ title, icon, body: text, copied, ms: r.ms });
+  } else {
+    ctx.panel.showOutput({ title, icon, path: file, code: r.code, stdout: r.stdout, stderr: r.stderr, ms: r.ms, line: locate(r.stderr, file) });
+  }
+  return true; // 골랐다는 사실은 결과와 무관하게 랭킹에 남는다
+}
 
 async function runAction(ctx, item) {
   const a = item.action ?? {};
   switch (a.type) {
     case 'open-app':
       return platform.openApp(a.path);
+    case 'run-script':
+      return runScript(ctx, item, a.path);
     case 'copy':
       clipboard.writeText(String(a.text ?? ''));
       return true;
@@ -39,6 +57,16 @@ export function registerIpc(ctx) {
     if (ok && item.source !== 'calc') ctx.store.pick(item.key, item.source); // 계산 결과는 랭킹을 타지 않는다
     return ok;
   });
+
+  // 출력 모드의 키(EXT-04·05): ↵ 다시 실행 · ⌘/Ctrl+↵ 스크립트 열기 · ⌘/Ctrl+C 복사
+  ipcMain.handle('script:rerun', async (_e, file) => {
+    const s = ctx.sources.scripts.byPath(file);
+    if (!s) return false;
+    ctx.panel.hide('run');
+    return runScript(ctx, { title: s.name, icon: s.icon }, file);
+  });
+  ipcMain.handle('script:open', async (_e, file) => !(await shell.openPath(file)));
+  ipcMain.handle('clip:copy', (_e, text) => { clipboard.writeText(String(text ?? '')); return true; });
 
   ipcMain.on('win:hide', () => ctx.panel.hide('esc'));
   ipcMain.on('panel:resize', (_e, h) => ctx.panel?.resize(Number(h) || 0));

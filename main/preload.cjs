@@ -9,4 +9,9 @@ contextBridge.exposeInMainWorld('whencommand', {
   resize: (h) => ipcRenderer.send('panel:resize', h),
   onShown: (cb) => ipcRenderer.on('panel:shown', () => cb()),
   onHidden: (cb) => ipcRenderer.on('panel:hidden', (_e, why) => cb(why)),
+  // 스크립트 출력 모드(EXT-04·05)
+  onOutput: (cb) => ipcRenderer.on('script:output', (_e, payload) => cb(payload)),
+  rerun: (path) => ipcRenderer.invoke('script:rerun', path),
+  openScript: (path) => ipcRenderer.invoke('script:open', path),
+  copy: (text) => ipcRenderer.invoke('clip:copy', text),
 });

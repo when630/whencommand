@@ -51,6 +51,21 @@ body { padding: 28px; user-select: none; }             /* 28px = main/panel.mjs 
 .row.calc { height: 56px; }
 .row.calc .tt { font-family: var(--font-mono); font-size: 21px; font-weight: 640; letter-spacing: -.5px; }
 .row.calc .sb { font-family: var(--font-mono); font-size: 13px; max-width: none; }
+.ic.scr { background: rgba(158,206,106,.16); color: var(--success); font-family: var(--font-mono); font-size: 12px; }
+/* 스크립트 출력 모드(시안 §5 ②·③, EXT-04·05) — 입력창 자리에 초록 이름표, 아래는 고정폭 출력. 실패면 --danger */
+.q .tag { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--success); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.panel.failed .q .tag, .panel.failed .q .hint { color: var(--danger); }
+.panel.outmode .sep { display: none; }
+.out-head { display: flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 10.5px; color: var(--text-muted); font-family: var(--font-mono);
+            border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: rgba(0,0,0,.18); }
+.out-head .st { font-size: 10px; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg-inset); }
+.out-head .st.ok { color: var(--success); } .out-head .st.bad { color: var(--danger); }
+.out-head .sp { flex: 1; }
+.out-head kbd { font-family: var(--font-mono); font-size: 10px; background: var(--bg-inset); border: 1px solid var(--border);
+                border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; margin-left: 4px; color: var(--text-secondary); }
+.outbody { margin: 0; padding: 10px 14px 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.55; color: var(--text-primary);
+           white-space: pre-wrap; word-break: break-all; max-height: 320px; overflow: auto; user-select: text; }
+.outbody .dim { color: var(--text-muted); }
 .empty { padding: 22px 16px 24px; text-align: center; }
 .empty .t1 { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
 .empty .t2 { font-size: 11.5px; color: var(--text-muted); line-height: 1.7; }
@@ -61,11 +76,13 @@ body { padding: 28px; user-select: none; }             /* 28px = main/panel.mjs 
   <div class="q">
     <span class="gi"><img src="../build/tray@2x.png" alt=""></span>
     <input id="q" type="text" placeholder="WHENCOMMAND" autocomplete="off" spellcheck="false">
+    <span class="tag" id="qtag" hidden></span>
     <span class="hint" id="hint"></span>
   </div>
   <div class="sep"></div>
   <div class="list" id="list"></div>
   <div id="extra"></div>
+  <div id="out" hidden></div>
 </div>
 <script src="panel.js"></script>
 </body>

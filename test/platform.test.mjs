@@ -26,9 +26,20 @@ const CONTRACT = [
   'trayImage',
   'listApps',
   'openApp',
+  'scriptRunner',
+  'exampleScript',
   'setLoginItem',
   'getLoginItem',
 ];
+
+test('스크립트 실행기는 OS 관례를 따른다 — sh / powershell (EXT-03)', () => {
+  assert.match(read('darwin.mjs'), /'\.sh'.*\/bin\/sh/);
+  assert.match(read('win32.mjs'), /'\.ps1'[\s\S]*?cmd: 'powershell'/);
+  // 한국어 Windows 콘솔은 cp949 — UTF-8로 못 박지 않으면 한글 출력이 깨진다
+  assert.match(read('win32.mjs'), /OutputEncoding=\[System\.Text\.Encoding\]::UTF8/);
+  // PowerShell 5.1은 BOM 없는 UTF-8을 cp949로 읽는다 — 예제 파일에 BOM
+  assert.match(read('win32.mjs'), /\\uFEFF/);
+});
 
 for (const impl of ['win32.mjs', 'darwin.mjs']) {
   test(`${impl}는 플랫폼 계약의 모든 이름을 내보낸다`, () => {

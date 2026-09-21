@@ -84,6 +84,14 @@ export function createPanel(ctx) {
     else show();
   }
 
+  // 스크립트의 긴 출력·실패(EXT-04·05) — 같은 패널이 아래로 자란다(D-17). 실행 전에 숨겼던 창을 다시 보이고 출력을 넘긴다.
+  // 'panel:shown'이 먼저 가서 렌더러가 입력 상태를 비우고, 그 뒤 출력이 도착해 출력 모드로 바뀐다.
+  function showOutput(payload) {
+    if (ctx.quitting) return;
+    if (!win.isVisible()) show();
+    win.webContents.send('script:output', payload);
+  }
+
   // 실측 #6: 한 번도 그려진 적 없는 창의 첫 페인트는 446ms(콜드 캐시). 시작 직후 보이지 않게 한 번 그려 둔다.
   function warmUp() {
     win.setOpacity(0);
@@ -110,5 +118,5 @@ export function createPanel(ctx) {
   });
   win.on('closed', () => { ctx.panel = null; });
 
-  return { win, show, hide, toggle, resize, resetPosition, isVisible: () => win.isVisible() };
+  return { win, show, hide, toggle, resize, resetPosition, showOutput, isVisible: () => win.isVisible() };
 }

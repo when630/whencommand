@@ -1,6 +1,6 @@
 // main/lifecycle.mjs — 앱 수명·트레이·전역 단축키·창 소유. 형제 앱 lifecycle.mjs의 뼈대를 따르되 이 앱 것으로 썼다(D-14).
 // OS 분기는 여기 없다 — 전부 platform이 안다(PLAT-01).
-import { app, Tray, Menu, globalShortcut, Notification } from 'electron';
+import { app, Tray, Menu, globalShortcut, Notification, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,7 +9,9 @@ import { createSettings } from './settings.mjs';
 import { createStore } from './store.mjs';
 import { createSources } from './sources/index.mjs';
 import { createPanel } from './panel.mjs';
-import { registerIpc } from './ipc.mjs';
+import { createToast } from './toast.mjs';
+import { registerIpc, runScript } from './ipc.mjs';
+import { SCRIPTS_DIR } from './sources/scripts.mjs';
 
 const APP_ID = 'com.when630.whencommand';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -39,6 +41,7 @@ export function bootstrap() {
     ctx.store = createStore(path.join(userData, 'whencommand.db'));
     ctx.sources = createSources(ctx);
     ctx.panel = createPanel(ctx);
+    ctx.toast = createToast(ctx);
     registerIpc(ctx);
 
     bindHotkey(ctx);
@@ -57,9 +60,9 @@ async function smoke(ctx) {
   ctx.smoke = true;
   let bad = false;
   const n = ctx.sources.appCount();
-  console.log(`smoke: 앱 ${n}개 · 단축키 ${ctx.hotkey} ${ctx.hotkeyOk ? 'ok' : 'FAIL'}${ctx.hotkeyConflict ? ` · 충돌 ${ctx.hotkeyConflict.app}` : ''}`);
+  console.log(`smoke: 앱 ${n}개 · 스크립트 ${ctx.sources.scripts.count()}개(${SCRIPTS_DIR}) · 단축키 ${ctx.hotkey} ${ctx.hotkeyOk ? 'ok' : 'FAIL'}${ctx.hotkeyConflict ? ` · 충돌 ${ctx.hotkeyConflict.app}` : ''}`);
   if (!n || !ctx.hotkeyOk) bad = true;
-  for (const q of ['', 'ㅋㄹ', 'chrome', '초개ㅡㄷ', 'vsc', '노트', '1920*0.28', '3.5kg to lb', 'ㅁㄴㅇㄹㅁㄴㅇㄹ']) {
+  for (const q of ['', 'ㅋㄹ', 'chrome', '초개ㅡㄷ', 'vsc', '노트', '내 ip', '1920*0.28', '3.5kg to lb', 'ㅁㄴㅇㄹㅁㄴㅇㄹ']) {
     const r = await ctx.sources.query(q);
     const line = r.items.slice(0, 4).map((i) => `${i.title}${i.final != null ? `(${i.final.toFixed(2)}${i.via && i.via !== 'direct' ? ',' + i.via : ''})` : ''}`).join(' · ');
     console.log(`  ${(q || '(빈 입력)').padEnd(14)} → ${line || '(0개)'}`);
@@ -76,6 +79,19 @@ async function smoke(ctx) {
   const img = await ctx.panel.win.webContents.capturePage();
   fs.writeFileSync(out, img.toPNG());
   console.log(`smoke: 캡처 → ${out} (${img.getSize().width}×${img.getSize().height})`);
+  // SMOKE_RUN=<스크립트 경로> — 실제로 실행해 출력 분기(D-17)를 찍는다. 토스트면 토스트 창을, 패널이면 출력 모드를 캡처한다
+  if (process.env.SMOKE_RUN) {
+    const file = process.env.SMOKE_RUN;
+    const s = ctx.sources.scripts.byPath(file);
+    ctx.panel.hide('smoke');
+    await runScript(ctx, { title: s?.name ?? path.basename(file), icon: s?.icon ?? '$' }, file);
+    await sleep(700);
+    const target = ctx.panel.isVisible() ? ctx.panel.win : ctx.toast.win;
+    const shot = await target.webContents.capturePage();
+    const out2 = out.replace(/\.png$/, '-run.png');
+    fs.writeFileSync(out2, shot.toPNG());
+    console.log(`smoke: 실행 → ${ctx.panel.isVisible() ? '패널 출력 모드' : '토스트'} · 캡처 → ${out2}`);
+  }
   ctx.panel.hide('smoke');
   await sleep(200);
   process.exitCode = bad ? 1 : 0;
@@ -99,12 +115,13 @@ function makeTray(ctx) {
       { label: '부르기', accelerator: ctx.hotkey, click: () => ctx.panel?.toggle() },
       { type: 'separator' },
       {
-        label: '앱 목록 새로고침',
+        label: '목록 새로고침',
         click: async () => {
           const n = await ctx.sources.refresh();
-          tray.setToolTip(`WHENCOMMAND — 앱 ${n}개`);
+          tray.setToolTip(`WHENCOMMAND — 앱 ${n.apps}개 · 스크립트 ${n.scripts}개`);
         },
       },
+      { label: '스크립트 폴더 열기', click: () => shell.openPath(SCRIPTS_DIR) }, // EXT-06
       { label: '입력줄 위치 되돌리기', click: () => ctx.panel?.resetPosition() },
       { type: 'separator' },
       { label: 'WHENCOMMAND 종료', role: 'quit' },

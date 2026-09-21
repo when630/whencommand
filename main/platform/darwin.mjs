@@ -131,6 +131,32 @@ export default {
     return !err;
   },
 
+  // 스크립트 실행기(EXT-03) — 확장자로 정한다. macOS는 .sh(sh)·.zsh(zsh)·.bash(bash), 확장자가 없으면 그 파일을 그대로 실행한다
+  // (실행 권한이 없으면 spawn이 EACCES로 실패하고 그 사실이 stderr로 보인다). 모르는 확장자는 null.
+  scriptRunner(file) {
+    const ext = path.extname(file).toLowerCase();
+    if (ext === '.sh') return { cmd: '/bin/sh', args: [file] };
+    if (ext === '.zsh') return { cmd: '/bin/zsh', args: [file] };
+    if (ext === '.bash') return { cmd: '/bin/bash', args: [file] };
+    if (ext === '') return { cmd: file, args: [] };
+    return null;
+  },
+
+  // 첫 실행 때 폴더와 함께 만드는 예제(EXT-06).
+  exampleScript() {
+    return {
+      name: '내-ip.sh',
+      content: [
+        '#!/bin/sh',
+        '# name: 내 IP',
+        '# description: 이 Mac의 로컬 IP — 한 줄이라 자동으로 복사됩니다',
+        '# icon: @',
+        'ipconfig getifaddr en0 || ipconfig getifaddr en1',
+        '',
+      ].join('\n'),
+    };
+  },
+
   // 미서명 앱에서도 로그인 항목이 실제로 켜졌는지 **돌려받은 값으로 확인한다** —
   // setLoginItemSettings는 실패해도 던지지 않는다. 호출부는 이 false를 보고
   // 사용자에게 알린다(조용히 안 켜진 채로 두지 않는다).
