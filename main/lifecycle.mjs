@@ -10,6 +10,7 @@ import { createStore } from './store.mjs';
 import { createSources } from './sources/index.mjs';
 import { createPanel } from './panel.mjs';
 import { createToast } from './toast.mjs';
+import { createSettingsWin } from './settings-win.mjs';
 import { registerIpc, runScript } from './ipc.mjs';
 import { SCRIPTS_DIR } from './sources/scripts.mjs';
 
@@ -43,6 +44,7 @@ export function bootstrap() {
     ctx.sources = createSources(ctx);
     ctx.panel = createPanel(ctx);
     ctx.toast = createToast(ctx);
+    ctx.settingsWin = createSettingsWin(ctx);
     registerIpc(ctx);
 
     bindHotkey(ctx);
@@ -103,19 +105,43 @@ async function smoke(ctx) {
     fs.writeFileSync(out2, shot.toPNG());
     console.log(`smoke: 실행 → ${ctx.panel.isVisible() ? '패널 출력 모드' : '토스트'} · 캡처 → ${out2}`);
   }
+  // SMOKE_SETTINGS=1 — 설정 창을 열어 찍는다(D-16). 형제 앱 목록·단축키 상태가 화면에 어떻게 서는지
+  if (process.env.SMOKE_SETTINGS) {
+    ctx.panel.hide('smoke');
+    ctx.settingsWin.show();
+    await sleep(900);
+    const shot = await ctx.settingsWin.win.webContents.capturePage();
+    const out3 = out.replace(/\.png$/, '-settings.png');
+    fs.writeFileSync(out3, shot.toPNG());
+    console.log(`smoke: 설정 창 ${shot.getSize().width}×${shot.getSize().height} · 캡처 → ${out3}`);
+    ctx.settingsWin.hide();
+  }
   ctx.panel.hide('smoke');
   await sleep(200);
   process.exitCode = bad ? 1 : 0;
   app.quit();
 }
 
-function bindHotkey(ctx) {
-  const accel = ctx.settings.get('hotkey', platform.defaultHotkey);
+// 단축키 하나를 (다시) 등록한다 — 처음도, 설정에서 바꿀 때도 같은 함수(PLAT-02). 등록 결과가 ctx에 남고 트레이가 그걸 읽는다.
+function applyHotkey(ctx, accel) {
+  globalShortcut.unregisterAll();
   ctx.hotkey = accel;
-  ctx.hotkeyOk = globalShortcut.register(accel, () => ctx.panel?.toggle());
+  try {
+    ctx.hotkeyOk = globalShortcut.register(accel, () => ctx.panel?.toggle()) && globalShortcut.isRegistered(accel);
+  } catch {
+    ctx.hotkeyOk = false; // 조합 문자열 자체가 잘못되면 register가 던진다
+  }
   // 실측 #1·#4: register()가 true여도 Spotlight가 켜져 있으면 둘이 함께 뜬다 — 반환값은 충돌을 말해 주지 않는다.
   // 시스템 설정을 읽어 충돌을 따로 본다(PLAT-03). 오픈이슈 #6(뒤늦게 뺏김)은 v1에서 다루지 않는다.
-  ctx.hotkeyConflict = platform.hotkeyConflict(accel);
+  ctx.hotkeyConflict = ctx.hotkeyOk ? platform.hotkeyConflict(accel) : null;
+  ctx.tray?.setToolTip(`WHENCOMMAND — ${platform.hotkeyLabel(accel)}`);
+  ctx.refreshTray?.();
+  return ctx.hotkeyOk;
+}
+
+function bindHotkey(ctx) {
+  ctx.applyHotkey = (accel) => applyHotkey(ctx, accel);
+  applyHotkey(ctx, ctx.settings.get('hotkey', platform.defaultHotkey));
 }
 
 function makeTray(ctx) {
@@ -135,9 +161,12 @@ function makeTray(ctx) {
       { label: '스크립트 폴더 열기', click: () => shell.openPath(SCRIPTS_DIR) }, // EXT-06
       { label: '입력줄 위치 되돌리기', click: () => ctx.panel?.resetPosition() },
       { type: 'separator' },
+      { label: '설정…', click: () => ctx.settingsWin?.show() }, // D-16
+      { type: 'separator' },
       { label: 'WHENCOMMAND 종료', role: 'quit' },
     ]);
   tray.setContextMenu(menu());
+  ctx.refreshTray = () => tray.setContextMenu(menu()); // 단축키를 바꾸면 "부르기"의 표기도 따라간다
   tray.on('click', () => ctx.panel?.toggle()); // Windows 습관 — 왼쪽 클릭으로도 부른다
   ctx.tray = tray;
 }

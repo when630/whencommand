@@ -32,7 +32,7 @@ function highlight(title, positions) {
 function avatar(it) {
   if (it.source === 'calc') return `<span class="ic calc">=</span>`;
   if (it.source === 'scripts') return `<span class="ic scr">${esc(it.icon || '$')}</span>`;
-  if (it.source === 'siblings') return `<span class="ic sib">${esc(it.icon || '?')}</span>`; // 형제 앱은 시리즈 색(--accent)으로 — 시안 §3
+  if (it.source === 'siblings' || it.source === 'builtin') return `<span class="ic sib">${esc(it.icon || '?')}</span>`; // 형제 앱·이 앱은 시리즈 색(--accent)으로 — 시안 §3
   // 파일은 확장자, 폴더는 ▸ — 아이콘 추출(LNCH-04와 같은 이유)은 다음
   if (it.source === 'files') return `<span class="ic file${it.kind === 'dir' ? ' dir' : ''}">${it.kind === 'dir' ? '▸' : esc((it.icon || '·').slice(0, 4))}</span>`;
   let h = 0;
@@ -42,7 +42,7 @@ function avatar(it) {
   return `<span class="ic" style="background:linear-gradient(140deg,hsl(${hue} 55% 58%),hsl(${(hue + 30) % 360} 50% 42%))">${esc(ch)}</span>`;
 }
 
-const CHIP = { apps: ['앱', ''], calc: ['복사', ''], files: ['파일', ''], scripts: ['스크립트', 'scr'] };
+const CHIP = { apps: ['앱', ''], calc: ['복사', ''], files: ['파일', ''], scripts: ['스크립트', 'scr'], builtin: ['이 앱', 'sib'] };
 function chip(it) {
   if (it.source === 'siblings') return `<span class="chip sib"><span class="d"></span>${esc(it.app ?? '')}</span>`;
   if (it.source === 'files' && it.kind === 'dir') return `<span class="chip"><span class="d"></span>폴더</span>`;

@@ -1,7 +1,10 @@
 // main/ipc.mjs — 렌더러 경계. 채널은 domain:action(03 §8). 렌더러는 항목의 key만 돌려주고, 무엇을 할지는 여기가 정한다.
-import { ipcMain, clipboard, shell } from 'electron';
+import { app, ipcMain, clipboard, shell, dialog, BrowserWindow } from 'electron';
+import fs from 'node:fs';
 import { platform } from './platform/index.mjs';
 import { route, locate, lineCount } from './scripts.mjs';
+import { SCRIPTS_DIR } from './sources/scripts.mjs';
+import { APPS_DIR } from './sources/siblings.mjs';
 
 // 스크립트 실행 → 출력 길이로 가른다(D-17). 3줄 이하 성공은 토스트(한 줄이면 복사), 그 밖은 패널이 자란다(EXT-04·05).
 // 패널은 이미 숨겨진 상태다 — 긴 출력·실패일 때만 다시 보인다.
@@ -32,6 +35,9 @@ async function runAction(ctx, item) {
       return !(await shell.openPath(a.path));
     case 'reveal': // 파일이 든 폴더를 열고 그 파일을 고른다(FILE-04) — 양 OS 공통 API
       shell.showItemInFolder(a.path);
+      return true;
+    case 'open-settings':
+      ctx.settingsWin?.show();
       return true;
     case 'open-url':
       await shell.openExternal(a.url);
@@ -73,6 +79,110 @@ export function registerIpc(ctx) {
   });
   ipcMain.handle('script:open', async (_e, file) => !(await shell.openPath(file)));
   ipcMain.handle('clip:copy', (_e, text) => { clipboard.writeText(String(text ?? '')); return true; });
+
+  // ── 설정 창(D-16). 실패는 돌려받은 값으로 확인해 돌려준다(PLAT-02·05) — 화면이 그 값을 그대로 적는다
+  ipcMain.handle('settings:get', () => {
+    const sib = ctx.sources.siblings;
+    return {
+      platform: platform.name,
+      version: app.getVersion(),
+      packaged: app.isPackaged,
+      hotkey: ctx.hotkey,
+      hotkeyLabel: platform.hotkeyLabel(ctx.hotkey),
+      hotkeyOk: ctx.hotkeyOk,
+      hotkeyConflict: ctx.hotkeyConflict,
+      openAtLogin: app.isPackaged ? platform.getLoginItem(app) : false,
+      scripts: { dir: SCRIPTS_DIR, count: ctx.sources.scripts.count() },
+      siblings: {
+        dir: APPS_DIR,
+        exists: fs.existsSync(APPS_DIR),
+        apps: sib.apps().map((m) => ({ name: m.name, icon: m.name.replace(/^when/i, '')[0]?.toUpperCase() ?? '?', commands: m.commands.length })),
+        skipped: sib.skipped().map((s) => ({ file: s.file.split(/[\\/]/).pop(), error: s.error })),
+      },
+      store: { file: ctx.store.file },
+    };
+  });
+
+  // PLAT-02: 새 조합의 등록 성공까지 확인한다. 실패하면 저장하지 않고 이전 조합으로 되돌린다 —
+  // 저장해 두면 다음 실행에서도 안 잡히는 조합으로 조용히 시작한다.
+  ipcMain.handle('hotkey:set', (_e, accel) => {
+    const next = String(accel ?? '').trim();
+    if (!next) return { ok: false, error: '조합이 비어 있습니다' };
+    const prev = ctx.hotkey;
+    if (ctx.applyHotkey(next)) {
+      ctx.settings.set('hotkey', next);
+      ctx.settings.flush();
+      return { ok: true, hotkey: next, label: platform.hotkeyLabel(next) };
+    }
+    ctx.applyHotkey(prev);
+    return { ok: false, error: `${platform.hotkeyLabel(next)} 를 등록하지 못했습니다 — 다른 앱이 쓰고 있거나 잘못된 조합입니다. 이전 조합을 유지합니다` };
+  });
+
+  // PLAT-05: 켠 뒤 실제로 켜졌는지 되읽는다 — 미서명 앱에서 조용히 실패한다
+  ipcMain.handle('settings:autostart', (_e, on) => {
+    if (!app.isPackaged) return { ok: false, error: '개발 실행에서는 켤 수 없습니다' };
+    const ok = platform.setLoginItem(app, !!on);
+    if (ok) ctx.settings.set('openAtLogin', !!on);
+    return { ok, openAtLogin: platform.getLoginItem(app) };
+  });
+
+  ipcMain.handle('settings:openScripts', async () => !(await shell.openPath(SCRIPTS_DIR)));
+  ipcMain.handle('settings:openSiblings', async () => {
+    try { fs.mkdirSync(APPS_DIR, { recursive: true }); } catch {}
+    return !(await shell.openPath(APPS_DIR));
+  });
+  ipcMain.handle('settings:refreshLists', () => ctx.sources.refresh());
+  ipcMain.handle('panel:resetPosition', () => { ctx.panel?.resetPosition(); return true; });
+  ipcMain.handle('store:reset', () => { try { ctx.store.reset(); return { ok: true }; } catch { return { ok: false }; } }); // STOR-03
+
+  // STOR-04: 설정만 — 단축키·자동 실행·입력줄 위치. 랭킹은 기기마다 다른 데이터라 담지 않는다
+  const EXPORT_KEYS = ['hotkey', 'openAtLogin', 'panel.pos'];
+  ipcMain.handle('settings:export', async (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    try {
+      const res = await dialog.showSaveDialog(win, {
+        title: '설정 내보내기',
+        defaultPath: `whencommand-settings-${new Date().toISOString().slice(0, 10)}.json`,
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+      });
+      if (res.canceled || !res.filePath) return { ok: false, canceled: true };
+      const settings = {};
+      for (const k of EXPORT_KEYS) { const v = ctx.settings.get(k); if (v != null) settings[k] = v; }
+      fs.writeFileSync(res.filePath, JSON.stringify({ app: 'whencommand', version: app.getVersion(), settings }, null, 2), 'utf8');
+      return { ok: true, path: res.filePath };
+    } catch {
+      return { ok: false, error: '내보내기에 실패했습니다' };
+    } finally {
+      win?.focus();
+    }
+  });
+  ipcMain.handle('settings:import', async (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    try {
+      const res = await dialog.showOpenDialog(win, { title: '설정 가져오기', filters: [{ name: 'JSON', extensions: ['json'] }], properties: ['openFile'] });
+      if (res.canceled || !res.filePaths?.[0]) return { ok: false, canceled: true };
+      let parsed;
+      try { parsed = JSON.parse(fs.readFileSync(res.filePaths[0], 'utf8').replace(/^﻿/, '')); } catch { return { ok: false, error: 'JSON 파일이 아닙니다' }; }
+      if (parsed?.app !== 'whencommand' || typeof parsed.settings !== 'object') return { ok: false, error: 'WHENCOMMAND 설정 파일이 아닙니다' };
+      const s = parsed.settings;
+      let hotkeyFailed = null;
+      if (typeof s.hotkey === 'string' && s.hotkey && s.hotkey !== ctx.hotkey) {
+        const prev = ctx.hotkey;
+        if (ctx.applyHotkey(s.hotkey)) ctx.settings.set('hotkey', s.hotkey);
+        else { ctx.applyHotkey(prev); hotkeyFailed = platform.hotkeyLabel(s.hotkey); }
+      }
+      if (s['panel.pos'] && Number.isFinite(s['panel.pos'].x) && Number.isFinite(s['panel.pos'].y)) ctx.settings.set('panel.pos', { x: s['panel.pos'].x, y: s['panel.pos'].y });
+      if (typeof s.openAtLogin === 'boolean' && app.isPackaged && platform.setLoginItem(app, s.openAtLogin)) ctx.settings.set('openAtLogin', s.openAtLogin);
+      ctx.settings.flush();
+      return { ok: true, hotkeyFailed };
+    } catch {
+      return { ok: false, error: '가져오기에 실패했습니다' };
+    } finally {
+      win?.focus();
+    }
+  });
+  ipcMain.on('settings:resize', (_e, h) => ctx.settingsWin?.resize(Number(h) || 0));
+  ipcMain.on('settings:close', () => ctx.settingsWin?.hide());
 
   ipcMain.on('win:hide', () => ctx.panel.hide('esc'));
   ipcMain.on('panel:resize', (_e, h) => ctx.panel?.resize(Number(h) || 0));

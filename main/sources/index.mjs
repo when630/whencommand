@@ -7,11 +7,12 @@ import calc from './calc.mjs';
 import scripts from './scripts.mjs';
 import files from './files.mjs';
 import siblings from './siblings.mjs';
+import builtin from './builtin.mjs';
 
 const MAX_ROWS = 8; // PANEL-08
 
 export function createSources(ctx) {
-  const fast = [apps, calc, scripts, siblings];
+  const fast = [apps, calc, scripts, siblings, builtin];
   // 렌더러는 key만 돌려준다 — 직전 결과를 들고 있어야 item:run이 무엇인지 안다
   let last = new Map();
   let lastSeq = 0; // 늦게 온 답이 아직 보고 있는 질의의 것인지 가리는 순번 — 렌더러가 매긴다
