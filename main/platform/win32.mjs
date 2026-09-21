@@ -1,7 +1,8 @@
 // main/platform/win32.mjs — Windows(및 그 외 OS의 기본값). whennote에서 복사(D-14).
 //
-// ⚠ 이 앱의 Windows 쪽은 **실기기에서 검증되지 않았다**(03 §11 #5·#9, 2026-09-19 기준 macOS에서만 개발).
-// 확인할 것: Alt+Space가 창 시스템 메뉴보다 먼저 잡히는가, 숨긴 뒤 직전 창으로 포커스가 돌아가는가.
+// 2026-09-21 Windows 11 실기기에서 확인(03 §11 #5·#7·#9): Alt+Space는 시스템 메뉴보다 먼저 잡히고, 다른 런처가
+// 먼저 쥐고 있으면 register()가 false를 돌려준다(먼저 등록한 쪽이 이긴다 — macOS와 반대). UWP 42개는 Get-StartApps로만 보인다.
+// 남은 미검증: 미서명 앱의 로그인 항목(#2)은 패키징 후에.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFile, spawn } from 'node:child_process';
@@ -10,7 +11,7 @@ import { nativeImage, shell } from 'electron';
 export default {
   name: 'win32',
 
-  // PowerToys Run의 자리. 창 시스템 메뉴 기본값과 겹치므로 실측 #5가 남아 있다(D-05).
+  // PowerToys Run·Raycast의 자리. 시스템 메뉴보다 먼저 잡힌다(실측 #5) — 대신 그 런처들이 먼저 떠 있으면 register()가 false다(D-05).
   defaultHotkey: 'Alt+Space',
 
   // Windows NSIS는 서명 없이도 electron-updater가 내려받아 설치한다.
@@ -38,11 +39,15 @@ export default {
     app.setAppUserModelId(appId);
   },
 
-  // Windows는 show()가 곧 활성화다. 숨기면 OS가 직전 창으로 포커스를 돌려준다(미검증 — 03 §11 #7).
+  // Windows는 show()가 곧 활성화다. 단 **hide()만으로는 직전 창에 포커스가 돌아오지 않는다**(실측 2026-09-21, 03 §11 #7) —
+  // 항상-위·작업표시줄-제외 창을 숨기면 OS가 Z순서에서 아무 창이나 고른다. 숨기기 전에 minimize()를 거치면
+  // 최소화의 정규 활성화 경로가 직전 포그라운드 창을 복귀시킨다. 최소화된 창은 isVisible()=false라 show() 전에 restore()가 필요하다.
   activate(win) {
+    if (win.isMinimized()) win.restore();
     win.focus();
   },
   deactivate(win) {
+    win.minimize();
     win.hide();
   },
 

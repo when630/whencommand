@@ -20,8 +20,8 @@
 
 **Phase 1 — 최소 앱이 돈다.** `⌘Space` → 입력줄 → 앱을 초성·퍼지·자판 교정으로 찾아 `Enter`로 실행. 계산·단위 변환 포함. `npm run smoke`가 사람 손 없이 끝까지 돌고 렌더링을 PNG로 찍는다.
 
-끝난 것: Phase 0 실측(macOS 9개 중 6개 답, `docs/03 §11`), 시안 ㉤ 확정(D-15), 아이콘(`assets/icon/whencommand.png` → `tools/make-icon.mjs`).
-남은 것(순서대로): `sources/scripts.mjs`(EXT) → `sources/siblings.mjs` + 별도 레포 `when-protocol`(LINK) → `sources/files.mjs`(FILE, mdfind/Windows Search) → 설정 창(D-16) → `update.mjs`(whenwork 복사) → Windows 실측(#5·#9) → 릴리스.
+끝난 것: Phase 0 실측(10개 중 9개 답 — macOS 2026-09-19, Windows 2026-09-21, `docs/03 §11`), 시안 ㉤ 확정(D-15), 아이콘(`assets/icon/whencommand.png` → `tools/make-icon.mjs`), 양 OS에서 `smoke` 통과.
+남은 것(순서대로): `sources/scripts.mjs`(EXT) → `sources/siblings.mjs` + 별도 레포 `when-protocol`(LINK) → `sources/files.mjs`(FILE, mdfind/Windows Search) → 설정 창(D-16) → `update.mjs`(whenwork 복사) → 릴리스(패키징 후 실측 #2).
 
 ## 밟으면 아픈 함정 (전부 실측으로 확인된 것 — `docs/03 §11`)
 
@@ -32,6 +32,8 @@
 5. **`node:sqlite`는 Electron 내장 Node에만 있다.** 개발 PC의 Node 22.12 `node --test`에서는 못 연다 — `store.mjs` 테스트는 Electron 안(`--smoke`)에서만 검증된다
 6. **초성 검색은 한글 이름에만 걸린다.** macOS 앱 이름은 거의 영문이라 `ㅋㄹ`로 Chrome을 못 찾는다(오픈이슈 #7 — 별칭). 영문을 한글 자판으로 친 것(`초개ㅡㄷ`→chrome)은 `keyboardToLatin`이 되돌린다
 7. **퍼지 점수에서 연속 매칭 가산을 단어 첫 글자보다 낮게 두면 흩어진 머리글자가 항상 이긴다** — `chr`이 Chrome보다 Cache Handler Runner에 붙었다. 지금은 같다(`search.mjs` 주석)
+8. **Windows는 `win.hide()`만으로 직전 창에 포커스가 돌아오지 않는다.** 항상-위·작업표시줄-제외 창을 숨기면 OS가 아무 창이나 고른다. `minimize()`를 거쳐 숨기면 돌아오고, 그래서 보일 때 `restore()`가 먼저다 — `platform/win32.mjs`. 단축키는 macOS와 반대로 **먼저 등록한 앱이 이기고** `register()`가 false를 정직하게 돌려준다(Raycast for Windows가 떠 있으면 FAIL)
+9. **직전 인스턴스를 죽인 직후 바로 띄우면 단일 인스턴스 락에 걸려 조용히 종료된다**(exit 0, 출력 없음). 몇 초 뒤 다시 띄우면 된다
 
 ## 스택
 
