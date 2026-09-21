@@ -63,7 +63,7 @@ function render(result) {
   // 빈 입력은 입력줄만(D-18) — 목록도 안내도 없다
   if (!result.empty) {
     if (items.length) $list.innerHTML = items.map(row).join('');
-    else $extra.innerHTML = `<div class="empty"><div class="t1">찾은 것이 없습니다</div><div class="t2">앱 ${info.appCount}개에서 찾았습니다 · 초성·영문 자판 모두 봤습니다</div></div>`;
+    else $extra.innerHTML = `<div class="empty"><div class="t1">찾은 것이 없습니다</div><div class="t2">앱 ${result.appCount ?? info.appCount}개에서 찾았습니다 · 초성·영문 자판 모두 봤습니다</div></div>`;
     // 색인을 못 쓰면 그 사실을 한 줄로(FILE-05) — 조용히 결과 0으로 두지 않는다
     if (result.notice) $extra.innerHTML += `<div class="notice">${esc(result.notice)}</div>`;
   }
@@ -91,13 +91,13 @@ function more(r) {
   const have = new Set(items.map((it) => it.key));
   const fresh = r.items.filter((it) => !have.has(it.key));
   if (!fresh.length) return;
-  const fixed = items.slice(0, sel + 1);
-  const rest = [...items.slice(sel + 1), ...fresh].sort((a, b) => b.final - a.final);
-  items = [...fixed, ...rest].slice(0, 8); // PANEL-08
+  const keep = Math.min(sel + 1, items.length); // 빠른 결과가 없었으면 고정할 행도 없다
+  const rest = [...items.slice(keep), ...fresh].sort((a, b) => b.final - a.final);
+  items = [...items.slice(0, keep), ...rest].slice(0, 8); // PANEL-08
+  if (!keep) { sel = 0; render(lastResult); return; } // "찾은 것이 없습니다"를 지우고 처음부터 그린다
   // 고정된 행은 다시 그리지 않는다 — 깜빡임은 여기서 났다
-  const rows = $list.querySelectorAll('.row');
-  rows.forEach((el, i) => { if (i > sel) el.remove(); });
-  $list.insertAdjacentHTML('beforeend', items.slice(sel + 1).map((it, i) => row(it, sel + 1 + i)).join(''));
+  $list.querySelectorAll('.row').forEach((el, i) => { if (i >= keep) el.remove(); });
+  $list.insertAdjacentHTML('beforeend', items.slice(keep).map((it, i) => row(it, keep + i)).join(''));
   $hint.textContent = `${items.length}개`;
   requestAnimationFrame(() => window.whencommand.resize($panel.offsetHeight));
 }

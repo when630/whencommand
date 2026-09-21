@@ -50,7 +50,8 @@ export function createSources(ctx) {
           ctx.panel?.win.webContents.send('query:more', { seq, items: ranked });
         });
       }
-      return { seq, query: q, items: remember(items), empty: false, notice: wantFiles ? files.notice() : null };
+      // appCount는 매번 — 렌더러 초기화가 앱 수집보다 먼저 끝나 app:init의 값은 0일 수 있다
+      return { seq, query: q, items: remember(items), empty: false, notice: wantFiles ? files.notice() : null, appCount: apps.count() };
     },
     find: (key) => last.get(key) ?? null,
   };
