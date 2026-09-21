@@ -71,6 +71,11 @@ export function bootstrap() {
     };
 
     await ctx.sources.ready(); // 앱 목록 — 실측 ~100ms(8 병렬). 단축키는 이미 살아 있다
+    // 형제 앱 아이콘만 미리 받아 둔다(D-26 보충). 다섯 개뿐인데 셸이 기본 아이콘을 주면 PowerShell 폴백이 콜드 ~800ms라,
+    // 첫 질의에서 글자 상자만 보이다 바뀐다. 시작 직후 한 박자 뒤, 그리고 매니페스트가 바뀔 때마다. 앱 목록 전체는 여전히 보이는 줄만(D-23)
+    ctx.warmSiblingIcons = () => setTimeout(() => ctx.icons.get(ctx.sources.siblings.apps().map((m) => m.path).filter(Boolean)).catch(() => {}), 1500);
+    ctx.sources.siblings.onChange(() => ctx.warmSiblingIcons());
+    ctx.warmSiblingIcons();
     setupUpdater(ctx); // 릴리스 확인 — 60초 뒤 첫 확인, 이후 하루 한 번(main/update.mjs). 개발 실행은 unsupported
     if (process.argv.includes('--check-update')) {
       // 설치본에서 업데이트 경로가 실제로 도는지 보는 모드(REL-02). 결과를 찍고 끝낸다
@@ -117,7 +122,12 @@ export function bootstrap() {
         console.log('ICON_PROBE ' + line.join(' '));
       }
       // 앱이 실제로 쓰는 경로(icons.mjs — 기본 아이콘이면 platform.extractIcons 폴백)로도 한 번
+      const t0 = Date.now();
       const viaCache = await ctx.icons.get(paths);
+      console.log(`ICON_PROBE cache ${paths.length}개 ${Date.now() - t0}ms (콜드 — 폴백 포함)`);
+      const t1 = Date.now();
+      await ctx.icons.get(paths);
+      console.log(`ICON_PROBE cache 재요청 ${Date.now() - t1}ms`);
       for (const p of paths) {
         const url = viaCache[p];
         const h = url ? crypto.createHash('md5').update(url).digest('hex').slice(0, 8) : 'null';
@@ -255,6 +265,7 @@ function makeTray(ctx) {
         label: '목록 새로고침',
         click: async () => {
           const n = await ctx.sources.refresh();
+          ctx.warmSiblingIcons?.();
           tray.setToolTip(`WHENCOMMAND — 앱 ${n.apps}개 · 스크립트 ${n.scripts}개`);
         },
       },

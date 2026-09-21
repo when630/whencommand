@@ -149,7 +149,7 @@ export function registerIpc(ctx) {
     try { fs.mkdirSync(APPS_DIR, { recursive: true }); } catch {}
     return !(await shell.openPath(APPS_DIR));
   });
-  ipcMain.handle('settings:refreshLists', () => ctx.sources.refresh());
+  ipcMain.handle('settings:refreshLists', async () => { const r = await ctx.sources.refresh(); ctx.warmSiblingIcons?.(); return r; });
   ipcMain.handle('panel:resetPosition', () => { ctx.panel?.resetPosition(); return true; });
   ipcMain.handle('store:reset', () => { try { ctx.store.reset(); return { ok: true }; } catch { return { ok: false }; } }); // STOR-03
 
