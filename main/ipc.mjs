@@ -58,6 +58,7 @@ export function registerIpc(ctx) {
   }));
 
   ipcMain.handle('query:run', (_e, q, seq) => ctx.sources.query(q, seq));
+  ipcMain.handle('icon:get', (_e, paths) => ctx.icons.get(paths)); // 화면에 보이는 줄의 아이콘만(LNCH-04, D-23)
 
   // alt=true면 보조 동작(⌘·Ctrl+Enter) — 항목에 alt가 없으면 본 동작과 같다
   async function runItem(key, alt = false) {

@@ -209,6 +209,18 @@ export default {
     };
   },
 
+  // 아이콘을 뽑을 경로(LNCH-04). 시작 메뉴 항목은 .lnk라 그대로 물으면 "바로가기" 그림이 온다 — 대상을 풀어 그쪽 아이콘을 받는다.
+  // 못 풀면(깨진 바로가기) 원래 경로 — 그러면 바로가기 그림이라도 뜬다
+  resolveIconPath(p) {
+    if (!/\.lnk$/i.test(p)) return p;
+    try {
+      const { target } = shell.readShortcutLink(p);
+      return target && fs.existsSync(target) ? target : p;
+    } catch {
+      return p;
+    }
+  },
+
   // 매니페스트의 verify 경로에 든 %VAR%를 푼다(LINK-04). 모르는 변수는 그대로 둔다 — 그러면 existsSync가 false를 돌려준다
   expandPath(p) {
     return String(p).replace(/%([^%]+)%/g, (whole, name) => process.env[name] ?? process.env[name.toUpperCase()] ?? whole);

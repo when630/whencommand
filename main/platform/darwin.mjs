@@ -204,6 +204,11 @@ export default {
     };
   },
 
+  // 아이콘을 뽑을 경로(LNCH-04) — macOS는 .app 번들 경로 그대로 getFileIcon이 받는다
+  resolveIconPath(p) {
+    return p;
+  },
+
   // 매니페스트의 verify 경로에 든 ~와 $VAR를 푼다(LINK-04)
   expandPath(p) {
     return String(p)

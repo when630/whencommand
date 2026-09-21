@@ -40,7 +40,8 @@
 11. **Windows Search의 `System.ItemPathDisplay`는 경로가 아니다** — `C:\사용자\forcs\…`처럼 현지화된 표시용이다. 실제 경로는 `System.ItemUrl`(`file:C:/Users/…`)에서 뽑는다(`platform/win32-search.ps1`). PowerShell은 질의마다 띄우면 ~400ms라 한 번 띄워 stdin으로 묻는다
 12. **한글 IME는 ↑↓·Enter로 조합이 확정될 때 값이 같은 `input`을 한 번 더 낸다.** 그걸 새 입력으로 보면 방금 옮긴 커서가 0으로 돌아가고 목록이 깜빡인다 — `panel.js`는 값이 안 바뀐 `input`을 버린다. 영문 질의로만 시험하면 절대 안 드러난다
 13. **외부 프로세스에 넘기는 파일은 asar 밖에 둬야 한다.** `win32-search.ps1`을 PowerShell에 `-File`로 넘기는데 패키징본에선 `app.asar` 안이라 읽지 못했다(패키징 smoke "파일 검색 불가"). `package.json build.asarUnpack`에 올리고 코드에서 `app.asar` → `app.asar.unpacked`로 경로를 돌린다. **개발 실행에선 절대 안 드러난다 — 패키징 smoke가 유일한 검증**
-14. **스모크 경로 인자는 슬래시로.** Git Bash에서 `"$S\\$t.ps1"`는 `$t`가 확장되지 않아 `scripts$t.ps1`로 넘어갔다 — `cygpath -m`으로 `C:/…` 꼴을 쓴다
+14. **Windows 시작 메뉴 항목의 아이콘은 `.lnk`를 그대로 물으면 "바로가기" 그림이 온다.** `shell.readShortcutLink`로 대상을 풀어 그쪽을 물어야 한다(`platform/win32.mjs resolveIconPath`). UWP(`shell:AppsFolder`)는 `getFileIcon`이 못 뽑는다 — 첫 글자 상자로 둔다
+15. **스모크 경로 인자는 슬래시로.** Git Bash에서 `"$S\\$t.ps1"`는 `$t`가 확장되지 않아 `scripts$t.ps1`로 넘어갔다 — `cygpath -m`으로 `C:/…` 꼴을 쓴다
 
 ## 스택
 

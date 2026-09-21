@@ -30,6 +30,7 @@ const CONTRACT = [
   'exampleScript',
   'createFileSearch',
   'expandPath',
+  'resolveIconPath',
   'setLoginItem',
   'getLoginItem',
 ];

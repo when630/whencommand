@@ -11,6 +11,7 @@ import { createSources } from './sources/index.mjs';
 import { createPanel } from './panel.mjs';
 import { createToast } from './toast.mjs';
 import { createSettingsWin } from './settings-win.mjs';
+import { createIconCache } from './icons.mjs';
 import { initLog, log, traceQuit } from './log.mjs';
 import { setupUpdater, updateLine } from './update.mjs';
 import { registerIpc, runScript } from './ipc.mjs';
@@ -51,6 +52,7 @@ export function bootstrap() {
     ctx.panel = createPanel(ctx);
     ctx.toast = createToast(ctx);
     ctx.settingsWin = createSettingsWin(ctx);
+    ctx.icons = createIconCache();
     registerIpc(ctx);
 
     bindHotkey(ctx);
@@ -97,6 +99,24 @@ async function smoke(ctx) {
     const r = await ctx.sources.query(q);
     const line = r.items.slice(0, 4).map((i) => `${i.app ? `${i.app}:` : ''}${i.title}${i.final != null ? `(${i.final.toFixed(2)}${i.via && i.via !== 'direct' ? ',' + i.via : ''})` : ''}${i.action?.url ? ` → ${i.action.url}` : ''}`).join(' · ');
     console.log(`  ${(q || '(빈 입력)').padEnd(14)} → ${line || '(0개)'}`);
+  }
+  // 아이콘(LNCH-04) — 한 화면(8줄)을 뽑는 데 얼마나 드는지. 콜드·웜 둘 다
+  {
+    const r = await ctx.sources.query('c', 0);
+    const paths = r.items.map((i) => i.action?.path).filter(Boolean);
+    let t0 = Date.now();
+    const cold = {};
+    for (const p of paths) { // 하나씩 — 어느 경로가 느린지 보이게
+      const t = Date.now();
+      Object.assign(cold, await ctx.icons.get([p]));
+      const ms = Date.now() - t;
+      if (ms > 100) console.log(`  icon ${ms}ms ${p}`);
+    }
+    const coldMs = Date.now() - t0;
+    t0 = Date.now();
+    await ctx.icons.get(paths);
+    const got = Object.values(cold).filter(Boolean).length;
+    console.log(`smoke: 아이콘 ${paths.length}개 중 ${got}개 · 콜드 ${coldMs}ms · 웜 ${Date.now() - t0}ms`);
   }
   // 파일 검색(FILE) — 늦은 공급원은 따로 기다려 본다. 색인이 없으면 그 사실이 한 줄로 나와야 한다(FILE-05)
   const fst = ctx.sources.files.status();

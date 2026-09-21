@@ -28,8 +28,15 @@ function highlight(title, positions) {
   return out;
 }
 
-// 앱 아이콘은 v1에서 뽑지 않는다(LNCH-04는 다음) — 이름 첫 글자를 색 상자에 둔다. 색은 이름에서 결정적으로.
+// 앱·파일 아이콘은 OS 것을 쓴다(LNCH-04) — 받기 전까지, 그리고 못 뽑는 것(UWP)은 이름 첫 글자를 색 상자에 둔다. 색은 이름에서 결정적으로.
+// 아이콘은 화면에 보이는 줄만 묻고 세션 동안 기억한다(D-23). 도착하면 그 줄의 상자만 바꾼다 — 목록을 다시 그리지 않는다.
+const iconCache = new Map(); // path → dataUrl | null
+function iconPath(it) {
+  return (it.source === 'apps' || it.source === 'files') ? it.action?.path ?? null : null;
+}
 function avatar(it) {
+  const p = iconPath(it);
+  if (p && iconCache.get(p)) return `<span class="ic img"><img src="${iconCache.get(p)}" alt=""></span>`;
   if (it.source === 'calc') return `<span class="ic calc">=</span>`;
   if (it.source === 'scripts') return `<span class="ic scr">${esc(it.icon || '$')}</span>`;
   if (it.source === 'siblings' || it.source === 'builtin') return `<span class="ic sib">${esc(it.icon || '?')}</span>`; // 형제 앱·이 앱은 시리즈 색(--accent)으로 — 시안 §3
@@ -50,9 +57,24 @@ function chip(it) {
   return `<span class="chip ${cls}"><span class="d"></span>${esc(label)}</span>`;
 }
 
+// 그려진 줄 중 아이콘을 아직 못 받은 것만 묻는다. 응답이 올 때 그 줄이 아직 같은 항목이면 상자만 바꾼다
+async function fetchIcons() {
+  const want = [...new Set(items.map(iconPath).filter((p) => p && !iconCache.has(p)))];
+  if (!want.length) return;
+  const got = await window.whencommand.icons(want);
+  for (const [p, url] of Object.entries(got)) iconCache.set(p, url);
+  $list.querySelectorAll('.row').forEach((el) => {
+    const it = items[Number(el.dataset.i)];
+    const p = it && iconPath(it);
+    if (!p || !iconCache.get(p)) return;
+    const ic = el.querySelector('.ic');
+    if (ic && !ic.classList.contains('img')) ic.outerHTML = avatar(it);
+  });
+}
+
 function row(it, i) {
   const calc = it.source === 'calc';
-  return `<div class="row${calc ? ' calc' : ''}${i === sel ? ' sel' : ''}" data-i="${i}">
+  return `<div class="row${calc ? ' calc' : ''}${i === sel ? ' sel' : ''}" data-i="${i}" data-key="${esc(it.key)}">
     ${avatar(it)}
     <span class="tin"><span class="tt">${calc ? esc(it.title) : highlight(it.title, it.positions)}</span>${it.subtitle ? `<span class="sb">${esc(it.subtitle)}</span>` : ''}</span>
     ${chip(it)}<span class="kb">↵</span></div>`;
@@ -73,6 +95,7 @@ function render(result) {
   $hint.textContent = q && items.length ? `${items.length}개` : (q && result.pending ? '…' : '');
   // 카드 높이를 메인에 알린다 — 남는 투명 영역이 아래 창의 클릭을 먹지 않게
   requestAnimationFrame(() => window.whencommand.resize($panel.offsetHeight));
+  if (items.length) fetchIcons();
 }
 
 let lastQueried = null; // 마지막으로 검색한 문자열 — 한글 IME가 조합을 확정하며 내는 값 같은 input을 걸러 낸다
@@ -113,6 +136,7 @@ function more(r) {
   $list.insertAdjacentHTML('beforeend', items.slice(keep).map((it, i) => row(it, keep + i)).join(''));
   $hint.textContent = `${items.length}개`;
   requestAnimationFrame(() => window.whencommand.resize($panel.offsetHeight));
+  fetchIcons();
 }
 
 function move(d) {
