@@ -29,6 +29,7 @@ const CONTRACT = [
   'scriptRunner',
   'exampleScript',
   'createFileSearch',
+  'expandPath',
   'setLoginItem',
   'getLoginItem',
 ];

@@ -206,6 +206,11 @@ export default {
     };
   },
 
+  // 매니페스트의 verify 경로에 든 %VAR%를 푼다(LINK-04). 모르는 변수는 그대로 둔다 — 그러면 existsSync가 false를 돌려준다
+  expandPath(p) {
+    return String(p).replace(/%([^%]+)%/g, (whole, name) => process.env[name] ?? process.env[name.toUpperCase()] ?? whole);
+  },
+
   // 로그인 시 자동 실행. Windows는 실행 파일 경로가 그대로 등록된다.
   setLoginItem(app, openAtLogin) {
     app.setLoginItemSettings({ openAtLogin, args: [] });

@@ -204,6 +204,13 @@ export default {
     };
   },
 
+  // 매니페스트의 verify 경로에 든 ~와 $VAR를 푼다(LINK-04)
+  expandPath(p) {
+    return String(p)
+      .replace(/^~(?=\/|$)/, os.homedir())
+      .replace(/\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?/g, (whole, name) => process.env[name] ?? whole);
+  },
+
   // 미서명 앱에서도 로그인 항목이 실제로 켜졌는지 **돌려받은 값으로 확인한다** —
   // setLoginItemSettings는 실패해도 던지지 않는다. 호출부는 이 false를 보고
   // 사용자에게 알린다(조용히 안 켜진 채로 두지 않는다).

@@ -61,11 +61,12 @@ async function smoke(ctx) {
   ctx.smoke = true;
   let bad = false;
   const n = ctx.sources.appCount();
-  console.log(`smoke: 앱 ${n}개 · 스크립트 ${ctx.sources.scripts.count()}개(${SCRIPTS_DIR}) · 단축키 ${ctx.hotkey} ${ctx.hotkeyOk ? 'ok' : 'FAIL'}${ctx.hotkeyConflict ? ` · 충돌 ${ctx.hotkeyConflict.app}` : ''}`);
+  const sib = ctx.sources.siblings;
+  console.log(`smoke: 앱 ${n}개 · 스크립트 ${ctx.sources.scripts.count()}개(${SCRIPTS_DIR}) · 형제 앱 ${sib.count()}개(${sib.apps().map((a) => `${a.name} ${a.commands.length}명령`).join(', ') || '없음'}${sib.skipped().length ? ` · 건너뜀 ${sib.skipped().map((s) => `${path.basename(s.file)}: ${s.error}`).join(' / ')}` : ''}) · 단축키 ${ctx.hotkey} ${ctx.hotkeyOk ? 'ok' : 'FAIL'}${ctx.hotkeyConflict ? ` · 충돌 ${ctx.hotkeyConflict.app}` : ''}`);
   if (!n || !ctx.hotkeyOk) bad = true;
-  for (const q of ['', 'ㅋㄹ', 'chrome', '초개ㅡㄷ', 'vsc', '노트', '내 ip', '1920*0.28', '3.5kg to lb', 'ㅁㄴㅇㄹㅁㄴㅇㄹ']) {
+  for (const q of ['', 'ㅋㄹ', 'chrome', '초개ㅡㄷ', 'vsc', '노트', '내 ip', '메모 검색 회의록', '퀵', '1920*0.28', '3.5kg to lb', 'ㅁㄴㅇㄹㅁㄴㅇㄹ']) {
     const r = await ctx.sources.query(q);
-    const line = r.items.slice(0, 4).map((i) => `${i.title}${i.final != null ? `(${i.final.toFixed(2)}${i.via && i.via !== 'direct' ? ',' + i.via : ''})` : ''}`).join(' · ');
+    const line = r.items.slice(0, 4).map((i) => `${i.app ? `${i.app}:` : ''}${i.title}${i.final != null ? `(${i.final.toFixed(2)}${i.via && i.via !== 'direct' ? ',' + i.via : ''})` : ''}${i.action?.url ? ` → ${i.action.url}` : ''}`).join(' · ');
     console.log(`  ${(q || '(빈 입력)').padEnd(14)} → ${line || '(0개)'}`);
   }
   // 파일 검색(FILE) — 늦은 공급원은 따로 기다려 본다. 색인이 없으면 그 사실이 한 줄로 나와야 한다(FILE-05)

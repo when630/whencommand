@@ -6,11 +6,12 @@ import apps from './apps.mjs';
 import calc from './calc.mjs';
 import scripts from './scripts.mjs';
 import files from './files.mjs';
+import siblings from './siblings.mjs';
 
 const MAX_ROWS = 8; // PANEL-08
 
 export function createSources(ctx) {
-  const fast = [apps, calc, scripts];
+  const fast = [apps, calc, scripts, siblings];
   // 렌더러는 key만 돌려준다 — 직전 결과를 들고 있어야 item:run이 무엇인지 안다
   let last = new Map();
   let lastSeq = 0; // 늦게 온 답이 아직 보고 있는 질의의 것인지 가리는 순번 — 렌더러가 매긴다
@@ -24,13 +25,14 @@ export function createSources(ctx) {
     async ready() {
       await Promise.all([...fast, files].map((s) => s.ready(ctx)));
     },
-    // 트레이 "목록 새로고침" — 캐시를 갖는 공급원 둘을 다시 읽는다
+    // 트레이 "목록 새로고침" — 캐시를 갖는 공급원 셋을 다시 읽는다
     async refresh() {
-      return { apps: await apps.refresh(), scripts: scripts.refresh() };
+      return { apps: await apps.refresh(), scripts: scripts.refresh(), siblings: siblings.refresh() };
     },
     appCount: () => apps.count(),
     scripts,
     files,
+    siblings,
     async query(raw, seq = 0) {
       const q = String(raw ?? '').trim();
       lastSeq = seq;
