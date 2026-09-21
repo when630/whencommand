@@ -1,0 +1,27 @@
+# 푸시·PR마다 순수 함수 테스트를 두 OS에서 돈다(REL-03). 이 앱은 검색·랭킹·계산·매니페스트·스크립트 헤더가 전부
+# Electron 없이 도는 순수 함수라 헤드리스에 아무것도 필요 없다 — 형제 앱과 달리 xvfb도 없다.
+# 두 OS인 이유: platform.test가 두 구현의 계약을 파일로 검사하지만, 경로 구분자·줄끝(CRLF)·PowerShell 유무처럼
+# OS가 갈라 놓는 것은 실제로 그 OS에서 돌려야 드러난다.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # postinstall이 아이콘을 굽는다(tools/make-icon.mjs) — 외부 의존성 없이 zlib만 쓴다
+      - run: npm ci
+      - run: npm test
