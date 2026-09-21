@@ -16,6 +16,7 @@ let sel = 0;
 let seq = 0; // 늦게 도착한 응답을 버리기 위한 순번
 let out = null; // 출력 모드(EXT-04·05) — 스크립트 결과가 패널을 차지한다. null이면 보통의 입력 모드
 let lastResult = { empty: true }; // 늦은 합류(D-11)가 다시 그릴 때 쓰는 직전 응답의 부가 정보(notice 등)
+let pendingMove = 0; // 늦은 답을 기다리는 빈 목록에서 누른 방향키 — 도착하면 적용한다. 버리면 "눌렀는데 안 내려간다"가 된다
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -63,11 +64,12 @@ function render(result) {
   // 빈 입력은 입력줄만(D-18) — 목록도 안내도 없다
   if (!result.empty) {
     if (items.length) $list.innerHTML = items.map(row).join('');
-    else $extra.innerHTML = `<div class="empty"><div class="t1">찾은 것이 없습니다</div><div class="t2">앱 ${result.appCount ?? info.appCount}개에서 찾았습니다 · 초성·영문 자판 모두 봤습니다</div></div>`;
+    // 느린 공급원의 답을 기다리는 중이면 빈 안내를 내지 않는다 — 0.2초 뒤 파일이 오면서 깜빡이던 자리다
+    else if (!result.pending) $extra.innerHTML = `<div class="empty"><div class="t1">찾은 것이 없습니다</div><div class="t2">앱 ${result.appCount ?? info.appCount}개에서 찾았습니다 · 초성·영문 자판 모두 봤습니다</div></div>`;
     // 색인을 못 쓰면 그 사실을 한 줄로(FILE-05) — 조용히 결과 0으로 두지 않는다
     if (result.notice) $extra.innerHTML += `<div class="notice">${esc(result.notice)}</div>`;
   }
-  $hint.textContent = q && items.length ? `${items.length}개` : '';
+  $hint.textContent = q && items.length ? `${items.length}개` : (q && result.pending ? '…' : '');
   // 카드 높이를 메인에 알린다 — 남는 투명 영역이 아래 창의 클릭을 먹지 않게
   requestAnimationFrame(() => window.whencommand.resize($panel.offsetHeight));
 }
@@ -80,6 +82,7 @@ async function query() {
   if (my !== seq) return; // 더 새 입력이 있었다
   items = result.items;
   sel = 0;
+  pendingMove = 0;
   lastResult = result;
   render(result);
 }
@@ -87,14 +90,21 @@ async function query() {
 // 느린 공급원(파일)이 늦게 합류한다(D-11). 순번이 다르면 버린다. **커서까지의 행은 그대로 두고** 그 아래만 점수순으로 섞는다 —
 // 방향키를 누른 직후 도착해도 보고 있던 것이 밀리거나 커서가 튀지 않는다. 첫 줄이 고정되는 대가로 더 잘 맞는 파일은 둘째 줄부터 온다
 function more(r) {
-  if (r.seq !== seq || out || !r.items.length) return;
+  if (r.seq !== seq || out) return;
+  lastResult = { ...lastResult, pending: false }; // 늦은 답이 왔다 — 이제 비어 있으면 정말 없는 것이다
   const have = new Set(items.map((it) => it.key));
   const fresh = r.items.filter((it) => !have.has(it.key));
-  if (!fresh.length) return;
+  if (!fresh.length) { if (!items.length) render(lastResult); return; }
   const keep = Math.min(sel + 1, items.length); // 빠른 결과가 없었으면 고정할 행도 없다
   const rest = [...items.slice(keep), ...fresh].sort((a, b) => b.final - a.final);
   items = [...items.slice(0, keep), ...rest].slice(0, 8); // PANEL-08
-  if (!keep) { sel = 0; render(lastResult); return; } // "찾은 것이 없습니다"를 지우고 처음부터 그린다
+  if (!keep) {
+    // 기다리는 동안 누른 방향키를 이제 적용한다
+    sel = ((pendingMove % items.length) + items.length) % items.length;
+    pendingMove = 0;
+    render(lastResult);
+    return;
+  }
   // 고정된 행은 다시 그리지 않는다 — 깜빡임은 여기서 났다
   $list.querySelectorAll('.row').forEach((el, i) => { if (i >= keep) el.remove(); });
   $list.insertAdjacentHTML('beforeend', items.slice(keep).map((it, i) => row(it, keep + i)).join(''));
@@ -103,7 +113,7 @@ function more(r) {
 }
 
 function move(d) {
-  if (!items.length) return;
+  if (!items.length) { if (lastResult.pending) pendingMove += d; return; }
   sel = (sel + d + items.length) % items.length;
   $list.querySelectorAll('.row').forEach((el, i) => el.classList.toggle('sel', i === sel));
   $list.querySelector('.row.sel')?.scrollIntoView({ block: 'nearest' });
