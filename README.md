@@ -9,7 +9,7 @@
 단축키 한 번으로 화면 위에 입력줄이 뜨고, 몇 글자를 치면 **앱이 열리거나, 파일이 열리거나, 명령이 실행됩니다.** 형제 앱(WHENNOTE·WHENWORK·WHENCALENDAR·WHENMUSIC·WHENMAIL)이 설치돼 있으면 그 앱들의 명령까지 같은 줄에서 실행됩니다 — 설치돼 있지 않으면 그 항목이 없을 뿐, 앱은 그대로 동작합니다.
 
 - **기억 비용 0** — 형제 앱이 늘수록 외울 단축키가 늘었습니다. 이 앱은 그 문제를 시리즈 안에서 풉니다: 단축키는 하나면 됩니다
-- **초성 · 퍼지 · 자판 교정** — `ㅋㄹ`로 크롬, `vsc`로 Visual Studio Code, `초개ㅡㄷ`(chrome을 한글 자판으로 친 것)도 Chrome
+- **초성 · 퍼지 · 자판 교정 · 별칭** — `ㅋㄹ`로 크롬(영문 Chrome에 한글 별칭이 붙어 있습니다), `vsc`로 Visual Studio Code, `초개ㅡㄷ`(chrome을 한글 자판으로 친 것)도 Chrome. 별칭은 `~/.whencommand/aliases.json`에 `{ "블렌더": "Blender" }`처럼 더할 수 있습니다
 - **자주 고른 것이 위로** — 같은 두 글자를 세 번 쳤으면 그 다음부터 원하는 것이 첫 줄입니다
 - **계산과 변환** — `1920*0.28`, `3.5kg to lb`를 치면 첫 줄에 답. `Enter`로 복사
 - **저장하는 것은 랭킹뿐** — 이 앱은 자기 데이터를 갖지 않습니다. 내보낼 것도, 잃을 것도 없습니다
@@ -76,7 +76,7 @@ xattr -dr com.apple.quarantine /Applications/WHENCOMMAND.app
 
 ## 형제 앱 명령
 
-형제 앱이 실행되면 `~/.when/apps/<앱>.json`에 자기 명령을 남기고, 이 앱은 그 폴더를 읽어 명령을 입력줄에 합칩니다 — `메모 검색 회의록` `Enter`로 WHENNOTE가 그 검색어로 열립니다. 규약은 [when-protocol](https://github.com/when630/when-protocol)에 있고, 지금은 WHENNOTE가 붙어 있습니다. 어느 형제 앱이 왜 안 보이는지는 설정 창의 "형제 앱" 섹션이 이유와 함께 보여 줍니다.
+형제 앱이 실행되면 `~/.when/apps/<앱>.json`에 자기 명령을 남기고, 이 앱은 그 폴더를 읽어 명령을 입력줄에 합칩니다 — `메모 검색 회의록` `Enter`로 WHENNOTE가 그 검색어로 열립니다. 규약은 [when-protocol](https://github.com/when630/when-protocol)에 있고, 형제 앱 다섯이 모두 붙어 있습니다(WHENNOTE 0.1.1 · WHENWORK 0.2.1 · WHENCALENDAR 0.1.3 · WHENMAIL 0.8.1 · WHENMUSIC). 어느 형제 앱이 왜 안 보이는지는 설정 창의 "형제 앱" 섹션이 이유와 함께 보여 줍니다.
 
 ## 개발 실행
 

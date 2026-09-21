@@ -34,7 +34,7 @@ v0.1.0 공개 뒤: 앱·파일 아이콘(D-23, LNCH-04), WHENNOTE 0.1.1 공개(�
 3. **미리 만든 창도 첫 페인트는 446ms**(설치 직후, GPU 캐시 콜드). 두 번째 실행부터 29ms. `panel.mjs`가 시작 직후 opacity 0으로 한 번 그려 둔다
 4. **앱 이름 읽기는 `plutil` 프로세스가 앱당 ~4ms** → 122개면 500ms. 시작 시 한 번 8병렬로 모으고 캐시한다(LNCH-05). 매 검색마다 디스크를 훑지 말 것
 5. **`node:sqlite`는 Electron 내장 Node에만 있다.** 개발 PC의 Node 22.12 `node --test`에서는 못 연다 — `store.mjs` 테스트는 Electron 안(`--smoke`)에서만 검증된다
-6. **초성 검색은 한글 이름에만 걸린다.** macOS 앱 이름은 거의 영문이라 `ㅋㄹ`로 Chrome을 못 찾는다(오픈이슈 #7 — 별칭). 영문을 한글 자판으로 친 것(`초개ㅡㄷ`→chrome)은 `keyboardToLatin`이 되돌린다
+6. **초성 검색은 한글 이름에만 걸린다.** 영문 앱은 `main/aliases.mjs`의 한글 별칭 표(D-24)로 잡는다 — `ㅋㄹ`→크롬→Google Chrome. 표에 없는 앱은 `~/.whencommand/aliases.json`. 영문을 한글 자판으로 친 것(`초개ㅡㄷ`→chrome)은 `keyboardToLatin`이 되돌린다
 7. **퍼지 점수에서 연속 매칭 가산을 단어 첫 글자보다 낮게 두면 흩어진 머리글자가 항상 이긴다** — `chr`이 Chrome보다 Cache Handler Runner에 붙었다. 지금은 같다(`search.mjs` 주석)
 8. **Windows는 `win.hide()`만으로 직전 창에 포커스가 돌아오지 않는다.** 항상-위·작업표시줄-제외 창을 숨기면 OS가 아무 창이나 고른다. `minimize()`를 거쳐 숨기면 돌아오고, 그래서 보일 때 `restore()`가 먼저다 — `platform/win32.mjs`. 단축키는 macOS와 반대로 **먼저 등록한 앱이 이기고** `register()`가 false를 정직하게 돌려준다(Raycast for Windows가 떠 있으면 FAIL)
 9. **직전 인스턴스를 죽인 직후 바로 띄우면 단일 인스턴스 락에 걸려 조용히 종료된다**(exit 0, 출력 없음). 몇 초 뒤 다시 띄우면 된다. `npm start`를 멈춰도 자식 `electron.exe`는 남는다 — whencommand 것만 골라 끄고, 개발 실행은 `Start-Process`로 셸과 분리해 띄운다
