@@ -5,7 +5,6 @@ import apps from './apps.mjs';
 import calc from './calc.mjs';
 
 const MAX_ROWS = 8; // PANEL-08
-const HINT_UNTIL_PICKS = 3; // SRCH-07 — 세 번 고르면 사용법 힌트가 사라진다
 
 export function createSources(ctx) {
   const list = [apps, calc];
@@ -28,8 +27,7 @@ export function createSources(ctx) {
     async query(raw) {
       const q = String(raw ?? '').trim();
       const picks = ctx.store.picks();
-      // 빈 입력은 입력줄만 — 목록을 채우지 않는다(D-18). 첫 실행에만 사용법 한 줄(SRCH-07)
-      if (!q) return { query: q, items: remember([]), empty: true, hint: picks.size < HINT_UNTIL_PICKS };
+      if (!q) return { query: q, items: remember([]), empty: true }; // 빈 입력은 입력줄만(D-18)
       const results = [];
       for (const s of list) results.push(...(await s.query(q, ctx)));
       const items = rank(results, picks).slice(0, MAX_ROWS);

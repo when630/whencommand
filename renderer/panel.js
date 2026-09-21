@@ -53,13 +53,10 @@ function render(result) {
   const q = $q.value.trim();
   $list.innerHTML = '';
   $extra.innerHTML = '';
-  if (result.empty) {
-    // 빈 입력은 입력줄만(D-18). 세 번 고르기 전까지만 사용법 한 줄(SRCH-07)
-    if (result.hint) $extra.innerHTML = `<div class="hintline"><span class="dot"></span><span>앱 이름을 <b>몇 글자만</b> — 초성도 됩니다(<code>ㅋㄹ</code> → 크롬). 수식을 치면 계산합니다.<br>자주 고른 것이 위로 올라옵니다.</span></div>`;
-  } else if (!items.length) {
-    $extra.innerHTML = `<div class="empty"><div class="t1">찾은 것이 없습니다</div><div class="t2">앱 ${info.appCount}개에서 찾았습니다 · 초성·영문 자판 모두 봤습니다</div></div>`;
-  } else {
-    $list.innerHTML = items.map(row).join('');
+  // 빈 입력은 입력줄만(D-18) — 목록도 안내도 없다
+  if (!result.empty) {
+    if (items.length) $list.innerHTML = items.map(row).join('');
+    else $extra.innerHTML = `<div class="empty"><div class="t1">찾은 것이 없습니다</div><div class="t2">앱 ${info.appCount}개에서 찾았습니다 · 초성·영문 자판 모두 봤습니다</div></div>`;
   }
   $hint.textContent = q && items.length ? `${items.length}개` : '';
   $footRun.innerHTML = items[sel]?.source === 'calc' ? '<kbd>↵</kbd> 복사' : '<kbd>↵</kbd> 실행';
