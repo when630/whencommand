@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('settings', {
   get: () => ipcRenderer.invoke('settings:get'),
   hotkeySet: (accel) => ipcRenderer.invoke('hotkey:set', accel),
   autostart: (on) => ipcRenderer.invoke('settings:autostart', on),
+  clipboardRow: (on) => ipcRenderer.invoke('settings:clipboardRow', on), // 클립보드 한 줄(D-37)
   openScripts: () => ipcRenderer.invoke('settings:openScripts'),
   openSiblings: () => ipcRenderer.invoke('settings:openSiblings'),
   refreshLists: () => ipcRenderer.invoke('settings:refreshLists'),

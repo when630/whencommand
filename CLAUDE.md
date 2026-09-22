@@ -11,7 +11,7 @@
 | 문서 | 내용 |
 |---|---|
 | `docs/01_프로젝트.md` | 정의·페르소나·스코프·형제 앱 경계 |
-| `docs/02_요구사항.md` | 요구사항 ID 67개 (PANEL·SRCH·LNCH·FILE·CALC·EXT·LINK·PLAT·STOR·REL·DONE). 체크는 테스트가 증명한 것만 |
+| `docs/02_요구사항.md` | 요구사항 ID 68개 (PANEL·SRCH·LNCH·FILE·CALC·EXT·LINK·PLAT·STOR·REL·DONE). 체크는 테스트가 증명한 것만 |
 | `docs/03_기술_스펙.md` | 스택·모듈·데이터 모델·**결정 기록 D-01~D-17**·**실측 로그 §11**·오픈이슈 |
 
 디자인 시안은 `design/mockups/panel-options.html`(확정안은 §0의 ㉤), 실측 스크립트는 `poc/`.
@@ -31,6 +31,7 @@ v0.1.0 공개 뒤: 앱·파일 아이콘(D-23, LNCH-04), WHENNOTE 0.1.1 공개(�
 "한 번 쓰면 굳는다" 원인 확정·수정(D-29, 오픈이슈 #9 해소) — 0.1.4 회귀: Windows `restore()` 뒤 `show()`를 빼서 렌더러가 프레임을 안 냈다. 재현·검증은 합성 키 + 화면 캡처(스크래치 `repro.ps1`).
 깔끔한 등장(D-30) — 투명으로 띄우고 렌더러가 빈 입력줄을 그린 신호(`panel:painted`) 뒤에 보인다. 직전 검색 화면이 한 프레임 보이던 것·크기 깜빡임. 오픈이슈 #10(`resizable:false`가 setSize를 막던 것) 해소.
 모션(D-31) — 들어올 때 90ms(`.panel.enter`), 나갈 때 70ms(`.panel.leave`, 메인은 80ms 타이머 뒤 숨김 — 렌더러 응답에 기대지 않는다).
+클립보드 즉시 동작(D-37, PANEL-13) — 뜨는 순간 한 번 읽어 링크 열기·경로 열기·의도 명령·퀵 메모를 빈 입력에 몇 줄. 감시·저장 없음, 설정에서 끔. `SMOKE_CLIP=<글>`.
 지름길 힌트(D-36, SRCH-11) — 고르면 `hint.mjs` 후보를 `sources.probe`로 재서 "다음엔 ‹ㅋㄹ›" 토스트 한 번.
 의도 라우팅(D-35, SRCH-10) — `main/intent.mjs` 규칙표. "담주 화 3시 김부장 미팅"→일정 추가가 명령 이름 없이 첫 줄에. 매니페스트 `commands[].intents`(when-protocol)가 선언하면 그것이 우선.
 Raycast에서 가져온 셋(D-32·33·34) — 폴백(결과 0개면 인자 받는 형제 앱 명령·`# fallback: yes` 스크립트에 입력 전체를, SRCH-09) · 시스템 명령 다섯(`sources/system.mjs`, `platform.systemCommands`, EXT-07) · 액션 패널 Ctrl+K(`main/actions.mjs`, PANEL-12).

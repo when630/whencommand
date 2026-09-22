@@ -43,7 +43,7 @@ function avatar(it) {
   if (p && iconCache.get(p)) return `<span class="ic img"><img src="${iconCache.get(p)}" alt=""></span>`;
   if (it.source === 'calc') return `<span class="ic calc">=</span>`;
   if (it.source === 'scripts') return `<span class="ic scr">${esc(it.icon || '$')}</span>`;
-  if (it.source === 'siblings' || it.source === 'builtin' || it.source === 'system') return `<span class="ic sib">${esc(it.icon || '?')}</span>`; // 형제 앱·이 앱·시스템은 시리즈 색(--accent)으로 — 시안 §3
+  if (it.source === 'siblings' || it.source === 'builtin' || it.source === 'system' || it.source === 'clip') return `<span class="ic sib">${esc(it.icon || '?')}</span>`; // 형제 앱·이 앱·시스템은 시리즈 색(--accent)으로 — 시안 §3
   // 파일은 확장자, 폴더는 ▸ — 아이콘 추출(LNCH-04와 같은 이유)은 다음
   if (it.source === 'files') return `<span class="ic file${it.kind === 'dir' ? ' dir' : ''}">${it.kind === 'dir' ? '▸' : esc((it.icon || '·').slice(0, 4))}</span>`;
   let h = 0;
@@ -53,7 +53,7 @@ function avatar(it) {
   return `<span class="ic" style="background:linear-gradient(140deg,hsl(${hue} 55% 58%),hsl(${(hue + 30) % 360} 50% 42%))">${esc(ch)}</span>`;
 }
 
-const CHIP = { apps: ['앱', ''], calc: ['복사', ''], files: ['파일', ''], scripts: ['스크립트', 'scr'], builtin: ['이 앱', 'sib'], system: ['시스템', 'sys'] };
+const CHIP = { apps: ['앱', ''], calc: ['복사', ''], files: ['파일', ''], scripts: ['스크립트', 'scr'], builtin: ['이 앱', 'sib'], system: ['시스템', 'sys'], clip: ['클립보드', ''] };
 function chip(it) {
   if (it.source === 'siblings') return `<span class="chip sib"><span class="d"></span>${esc(it.app ?? '')}</span>`;
   if (it.source === 'files' && it.kind === 'dir') return `<span class="chip"><span class="d"></span>폴더</span>`;
@@ -89,7 +89,8 @@ function render(result) {
   $list.innerHTML = '';
   $extra.innerHTML = '';
   fallbackShown = false;
-  // 빈 입력은 입력줄만(D-18) — 목록도 안내도 없다
+  // 빈 입력은 입력줄만(D-18) — 클립보드 행만 예외(D-37): 뜬 순간 클립보드에 링크·글이 있으면 그걸로 할 수 있는 것 몇 줄
+  if (result.empty && items.length) $list.innerHTML = `<div class="fbh">클립보드 — 방금 복사한 것으로</div>` + items.map(row).join('');
   if (!result.empty) {
     // 폴백(SRCH-09, D-32) — 빠른 답도 늦은 답도 없을 때 "이 글로 할 수 있는 것"이 목록 자리에 온다. 그냥 행이라 방향키·Enter가 그대로 된다
     if (!items.length && !result.pending && result.fallback?.length) { items = result.fallback; fallbackShown = true; }
@@ -100,6 +101,7 @@ function render(result) {
     if (result.notice) $extra.innerHTML += `<div class="notice">${esc(result.notice)}</div>`;
   }
   $hint.textContent = q && items.length ? `${items.length}개` : (q && result.pending ? '…' : '');
+  if (result.empty && items.length) $hint.textContent = '↵ 바로';
   // 카드 높이를 메인에 알린다 — 남는 투명 영역이 아래 창의 클릭을 먹지 않게
   requestAnimationFrame(() => window.whencommand.resize($panel.offsetHeight));
   if (items.length) fetchIcons();
@@ -246,6 +248,7 @@ function outputKeys(e) {
 // 한글 IME는 ↑↓·Enter로 조합이 확정될 때 **값이 같은 input을 한 번 더** 낸다. 그걸 새 입력으로 보면 방금 옮긴 커서가 0으로 돌아가고
 // 목록이 다시 그려져 깜빡인다 — 값이 안 바뀌었으면 검색하지 않는다
 $q.addEventListener('input', () => { if ($q.value !== lastQueried) query(); });
+window.whencommand.onRequery?.(() => query()); // 스모크·클립보드 갱신 — 값이 같아도 다시 묻는다
 document.addEventListener('keydown', (e) => {
   if (out) return outputKeys(e);
   if (act) return actionKeys(e);

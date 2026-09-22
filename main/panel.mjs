@@ -1,6 +1,6 @@
 // main/panel.mjs — 입력줄 창. 미리 만들어 숨겨 두고 show()/hide()만 한다(D-06 — 실측 #6: 29ms vs 새 창 144ms).
 // 보일 때·숨길 때의 활성화 방식은 platform이 안다(실측 #7 — macOS는 app.focus({steal}) / app.hide()).
-import { BrowserWindow, screen } from 'electron';
+import { BrowserWindow, screen, clipboard } from 'electron';
 import { log } from './log.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -105,6 +105,8 @@ export function createPanel(ctx) {
     platform.activate(win); // restore/show/focus — 순서와 조합은 OS가 다르다(실측 #7·D-29)
     // 최소화된 창의 setSize는 먹지 않으므로 restore 뒤에 맞춘다. 열릴 때 내용은 항상 빈 입력줄(panel:hidden·shown에서 비운다)
     if (win.getSize()[1] !== WIN_H_MIN) win.setSize(WIN_W, WIN_H_MIN, false);
+    // 클립보드 즉시 동작(D-37) — 뜨는 순간 한 번 읽는다. 감시하지 않고 저장하지 않는다. 설정에서 끌 수 있다
+    try { ctx.sources.setClipboard(ctx.settings.get('clipboardRow', true) && !ctx.smoke ? clipboard.readText() : ''); } catch { ctx.sources.setClipboard(''); }
     win.webContents.send('panel:shown');
     clearTimeout(revealTimer);
     revealTimer = setTimeout(() => { if (my === showSeq) { log('panel.reveal(timeout)'); reveal(); } }, REVEAL_MS);

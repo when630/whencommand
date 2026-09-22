@@ -216,6 +216,13 @@ async function smoke(ctx) {
   }
   ctx.panel.show();
   await sleep(500);
+  // SMOKE_CLIP=<글> — 그 글이 클립보드에 있었다면 빈 입력줄에 무엇이 뜨는지(D-37). 실제 클립보드는 스모크에서 읽지 않는다
+  if (process.env.SMOKE_CLIP) {
+    const items = ctx.sources.setClipboard(process.env.SMOKE_CLIP);
+    console.log(`smoke: 클립보드 ${JSON.stringify(process.env.SMOKE_CLIP)} → ${items.map((it) => it.title).join(' · ') || '(없음)'}`);
+    ctx.panel.win.webContents.send('panel:requery');
+    await sleep(400);
+  }
   // 렌더러에 질의를 넣어 그린 상태를 찍는다 — panel.js가 input 이벤트로 질의한다
   const smokeQuery = process.env.SMOKE_QUERY ?? 'chrome'; // 캡처에 넣을 질의 — 결과가 있는 화면을 찍는다
   // 지름길 힌트(D-36) — 캡처 질의의 첫 항목을 골랐다면 무엇을 알려 줄지. 실행은 하지 않는다

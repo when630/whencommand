@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('whencommand', {
   hide: () => ipcRenderer.send('win:hide'),
   resize: (h) => ipcRenderer.send('panel:resize', h),
   onShown: (cb) => ipcRenderer.on('panel:shown', () => cb()),
+  onRequery: (cb) => ipcRenderer.on('panel:requery', () => cb()),
   onHidden: (cb) => ipcRenderer.on('panel:hidden', (_e, why) => cb(why)),
   // 스크립트 출력 모드(EXT-04·05)
   onOutput: (cb) => ipcRenderer.on('script:output', (_e, payload) => cb(payload)),

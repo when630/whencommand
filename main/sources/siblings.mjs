@@ -7,7 +7,7 @@ import path from 'node:path';
 import { match } from '../search.mjs';
 import { parseManifest, splitCommand, buildUrl, missingArg, fallbackCommands } from '../manifest.mjs';
 import { platform } from '../platform/index.mjs';
-import { routeIntents } from '../intent.mjs';
+import { routeIntents, commandsForIntent } from '../intent.mjs';
 
 export const APPS_DIR = path.join(os.homedir(), '.when', 'apps');
 const NAME_WEIGHT = 0.7; // 앱 이름으로 걸린 것(`노트` → WHENNOTE의 모든 명령)은 제목으로 걸린 것보다 뒤에
@@ -101,6 +101,10 @@ export default {
   intents(q) {
     return routeIntents(q, apps).slice(0, 2).map(({ manifest: m, command: c, weight }) =>
       ({ ...toItem(m, c, q, Math.min(0.98, 0.8 + weight * 0.03), null, 'intent'), intent: true }));
+  },
+  // 의도가 이미 정해진 글(클립보드, D-37) — 그 의도를 받는 명령에 글 전체를 인자로
+  forIntent(intent, text) {
+    return commandsForIntent(intent, apps).map(({ manifest: m, command: c }) => ({ ...toItem(m, c, text, 1, null, 'clip') }));
   },
   // 폴백(D-32) — 결과가 없을 때 입력 전체를 인자로 넘기는 명령들. key는 보통 명령과 같아 고르면 같은 항목의 랭킹이 오른다
   fallback(q) {

@@ -92,3 +92,13 @@ export function routeIntents(q, manifests = []) {
   }
   return out;
 }
+
+// 이 의도를 받는 명령들 — 문장 판별 없이 의도가 이미 정해졌을 때(클립보드 글 → note, D-37)
+export function commandsForIntent(intent, manifests = []) {
+  const out = [];
+  for (const m of manifests) for (const c of m.commands ?? []) {
+    if (c.args?.[0] && intentsOf(m, c).includes(intent)) out.push({ manifest: m, command: c });
+  }
+  return out;
+}
+

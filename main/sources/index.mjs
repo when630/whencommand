@@ -10,6 +10,8 @@ import siblings from './siblings.mjs';
 import builtin from './builtin.mjs';
 import system from './system.mjs';
 import { actionsFor, altAction } from '../actions.mjs';
+import { classifyClipboard, brief } from '../clip.mjs';
+import fs from 'node:fs';
 
 const MAX_ROWS = 8; // PANEL-08
 
@@ -25,6 +27,8 @@ export function createSources(ctx) {
   let last = new Map();
   let lastSeq = 0; // 늦게 온 답이 아직 보고 있는 질의의 것인지 가리는 순번 — 렌더러가 매긴다
   let lastQuery = ''; // 고른 순간 무엇을 치고 있었나 — 지름길 힌트(D-36)가 "그보다 짧은가"를 잰다
+  let clipItems = []; // 입력줄이 뜬 순간의 클립보드로 할 수 있는 것(D-37) — 빈 입력 상태에만 보인다
+  let lastClip = ''; // 같은 내용은 한 번만 — 안 골랐으면 다음에도 안 보인다
 
   const remember = (items) => {
     last = new Map(items.map((it) => [it.key, it]));
@@ -49,7 +53,7 @@ export function createSources(ctx) {
       lastSeq = seq;
       lastQuery = q;
       const picks = ctx.store.picks();
-      if (!q) return { seq, query: q, items: remember([]), empty: true }; // 빈 입력은 입력줄만(D-18)
+      if (!q) return { seq, query: q, items: remember(clipItems), empty: true, clip: clipItems.length > 0 }; // 빈 입력은 입력줄만(D-18) — 클립보드 행만 예외(D-37)
       const results = [];
       for (const s of fast) results.push(...(await s.query(q, ctx)));
       // 의도 라우팅(D-35) — 문장에서 짚은 형제 앱 명령. 제목으로 이미 걸린 같은 명령이 있으면 그쪽(인자 분리가 더 정확하다)을 남긴다
@@ -77,6 +81,21 @@ export function createSources(ctx) {
     },
     find: (key) => last.get(key) ?? null,
     lastQuery: () => lastQuery,
+    // 클립보드 즉시 동작(PANEL-13, D-37) — 입력줄이 뜰 때 메인이 한 번 읽어 넘긴 글. 감시·저장 없음. 최대 세 줄:
+    // URL이면 '링크 열기', 있는 경로면 '열기', 그리고 글이 짚이는 의도의 명령(둘까지) — 아니면 퀵 메모(note 표)
+    setClipboard(raw) {
+      const c = classifyClipboard(raw, (p) => fs.existsSync(p));
+      if (!c || c.value === lastClip) { clipItems = []; return clipItems; }
+      lastClip = c.value;
+      const items = [];
+      if (c.kind === 'url') items.push({ key: 'clip:url', source: 'clip', title: '링크 열기', subtitle: brief(c.value), icon: '↗', action: { type: 'open-url', url: c.value } });
+      else if (c.kind === 'path') items.push({ key: 'clip:path', source: 'clip', title: '열기', subtitle: brief(c.value), icon: '▸', action: { type: 'open-path', path: c.value }, alt: { type: 'reveal', path: c.value } });
+      const routed = siblings.intents(c.value);
+      const dest = routed.length ? routed : siblings.forIntent('note', c.value).slice(0, 1);
+      for (const it of dest) items.push({ ...it, subtitle: `“${brief(c.value, 40)}”`, clip: true });
+      clipItems = items.slice(0, 3).map(withActions);
+      return clipItems;
+    },
     // 부작용 없는 검색(D-36) — 빠른 공급원만, last·순번·늦은 합류를 건드리지 않는다. 지름길 후보가 정말 첫 줄에 오는지 재는 데 쓴다
     async probe(q) {
       const results = [];

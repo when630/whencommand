@@ -37,6 +37,9 @@ function render() {
   else if (st.openAtLogin) { a.textContent = '켜져 있음 — 로그인 항목에서 확인됨'; a.className = 'd ok'; }
   else { a.textContent = '꺼져 있음'; a.className = 'd'; }
 
+  // 클립보드 한 줄(D-37)
+  $('clip').className = `tog${st.clipboardRow ? ' on' : ''}`;
+
   // 스크립트
   $('scDesc').innerHTML = `<code>${esc(st.scripts.dir)}</code> · ${st.scripts.count}개 · 상단 주석 <code># name:</code>으로 이름·설명을 선언합니다`;
 
@@ -185,6 +188,11 @@ $('as').addEventListener('click', async () => {
   else msg(r.openAtLogin ? '로그인할 때 자동으로 실행됩니다' : '자동 실행을 껐습니다', 'ok');
 });
 
+$('clip').addEventListener('click', async () => {
+  const r = await window.settings.clipboardRow(!st.clipboardRow);
+  await load();
+  msg(r ? '입력줄이 뜰 때 클립보드를 한 번 봅니다' : '클립보드를 보지 않습니다', 'ok');
+});
 $('openScripts').addEventListener('click', () => window.settings.openScripts());
 $('exp').addEventListener('click', async () => {
   const r = await window.settings.exportSettings();

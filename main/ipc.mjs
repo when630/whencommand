@@ -130,6 +130,7 @@ export function registerIpc(ctx) {
       hotkeyOk: ctx.hotkeyOk,
       hotkeyConflict: ctx.hotkeyConflict,
       openAtLogin: app.isPackaged ? platform.getLoginItem(app) : false,
+      clipboardRow: ctx.settings.get('clipboardRow', true) !== false, // D-37
       scripts: { dir: SCRIPTS_DIR, count: ctx.sources.scripts.count() },
       siblings: {
         dir: APPS_DIR,
@@ -179,6 +180,7 @@ export function registerIpc(ctx) {
     return { ok, openAtLogin: platform.getLoginItem(app) };
   });
 
+  ipcMain.handle('settings:clipboardRow', (_e, on) => { ctx.settings.set('clipboardRow', !!on); ctx.settings.flush(); return !!on; });
   ipcMain.handle('settings:openScripts', async () => !(await shell.openPath(SCRIPTS_DIR)));
   ipcMain.handle('settings:openSiblings', async () => {
     try { fs.mkdirSync(APPS_DIR, { recursive: true }); } catch {}
@@ -189,7 +191,7 @@ export function registerIpc(ctx) {
   ipcMain.handle('store:reset', () => { try { ctx.store.reset(); return { ok: true }; } catch { return { ok: false }; } }); // STOR-03
 
   // STOR-04: 설정만 — 단축키·자동 실행·입력줄 위치. 랭킹은 기기마다 다른 데이터라 담지 않는다
-  const EXPORT_KEYS = ['hotkey', 'openAtLogin', 'panel.pos'];
+  const EXPORT_KEYS = ['hotkey', 'openAtLogin', 'panel.pos', 'clipboardRow'];
   ipcMain.handle('settings:export', async (e) => {
     const win = BrowserWindow.fromWebContents(e.sender);
     try {
