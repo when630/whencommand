@@ -200,6 +200,7 @@ export function registerIpc(ctx) {
     }
   });
   ipcMain.on('settings:resize', (_e, h) => ctx.settingsWin?.resize(Number(h) || 0));
+  ipcMain.on('panel:painted', () => ctx.panel?.painted()); // 빈 입력줄을 그렸다 — 투명했던 창을 보인다(D-30)
   ipcMain.on('settings:close', () => ctx.settingsWin?.hide());
 
   ipcMain.on('win:hide', () => ctx.panel.hide('esc'));

@@ -22,7 +22,10 @@ export function createPanel(ctx) {
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
-    resizable: false,
+    // resizable:false는 min·max 크기를 생성 크기로 못 박아 setSize가 조용히 무시된다(실측 — getMinimumSize가 443). 그래서 resizable은 true,
+    // 대신 thickFrame:false로 사용자가 끌 수 있는 테두리(WS_THICKFRAME)를 없애고 will-resize도 막는다. 높이는 아래 min·max 안에서 코드만 바꾼다
+    resizable: true,
+    thickFrame: false,
     movable: true, // 마우스로 옮긴다 — 끌 수 있는 자리는 렌더러의 -webkit-app-region(D-19)
     minimizable: false,
     maximizable: false,
@@ -37,6 +40,11 @@ export function createPanel(ctx) {
       contextIsolation: true,
     },
   });
+  // resizable:false는 크기를 생성 크기(WIN_H_MAX)로 못 박는다 — setSize가 조용히 무시돼 창이 항상 443이었다(오픈이슈 #10).
+  // 폭은 고정, 높이만 입력줄~8줄 사이로 풀어 준다. 사용자가 끌어 늘릴 수 있는 테두리는 없다(frame:false)
+  win.setMinimumSize(WIN_W, WIN_H_MIN);
+  win.setMaximumSize(WIN_W, WIN_H_MAX);
+  win.on('will-resize', (e) => e.preventDefault()); // 사람이 끄는 크기 변경만 온다(프로그램 setSize는 안 온다) — 전부 막는다
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }); // PANEL-04
   win.setMenu?.(null);
@@ -70,20 +78,46 @@ export function createPanel(ctx) {
   // 보이기·숨기기 한 줄 로그 — 다른 PC에서 "한 번 쓰면 굳는다"가 어느 단계인지 로그만으로 좁히기 위해(D-28). 상태는 부르기 전 것
   const state = () => `visible=${win.isVisible()} minimized=${win.isMinimized()} focused=${win.isFocused()} opacity=${win.getOpacity()} h=${win.getSize()[1]}`;
 
+  // 보이기(D-30) — 최소화돼 있던 동안 렌더러는 프레임을 못 내므로, 그냥 보이면 **직전 검색 화면**이 한 프레임 먼저 오르고 그 뒤
+  // 빈 입력줄로 바뀐다(0.1.6 실사용: "전에 검색했던 게 한 번 보이고 새로 뜬다"). 그래서 투명(opacity 0)으로 띄워 렌더러가
+  // 빈 화면을 그렸다는 신호(panel:painted)를 받은 뒤에 나타낸다. 신호가 없어도 REVEAL_MS 뒤에는 보인다 — 굳은 창을 숨겨 두지 않는다
+  const REVEAL_MS = 150;
+  let revealTimer = null;
+  let showSeq = 0;
+
+  function reveal() {
+    clearTimeout(revealTimer);
+    revealTimer = null;
+    if (win.isDestroyed() || !win.isVisible()) return;
+    win.setOpacity(1);
+    win.focus();
+  }
+
   function show() {
     if (ctx.quitting) return;
     log('panel.show', state());
+    const my = ++showSeq;
     place();
-    // 숨겨져 있던 동안의 크기(결과 8줄이었을 수 있다)로 뜬 뒤 입력줄 높이로 줄어드는 것이 두 번째 깜빡임이었다(D-27).
-    // 열릴 때 내용은 항상 빈 입력줄이니(panel:hidden·shown에서 비운다) 보이기 전에 그 높이로 맞춘다
+    win.setOpacity(0); // 나타나는 순간까지 아무것도 안 보인다 — 직전 프레임도, 크기 변화도
+    platform.activate(win); // restore/show/focus — 순서와 조합은 OS가 다르다(실측 #7·D-29)
+    // 최소화된 창의 setSize는 먹지 않으므로 restore 뒤에 맞춘다. 열릴 때 내용은 항상 빈 입력줄(panel:hidden·shown에서 비운다)
     if (win.getSize()[1] !== WIN_H_MIN) win.setSize(WIN_W, WIN_H_MIN, false);
-    platform.activate(win); // restore/show/focus — 순서와 조합은 OS가 다르다(실측 #7)
     win.webContents.send('panel:shown');
+    clearTimeout(revealTimer);
+    revealTimer = setTimeout(() => { if (my === showSeq) { log('panel.reveal(timeout)'); reveal(); } }, REVEAL_MS);
+  }
+
+  // 렌더러가 빈 입력줄을 그렸다(두 rAF 뒤) — 이제 보여도 된다
+  function painted() {
+    if (!win.isVisible() || win.getOpacity() > 0) return;
+    reveal();
   }
 
   function hide(why) {
     if (!win.isVisible()) return;
     log(`panel.hide(${why})`, state());
+    clearTimeout(revealTimer);
+    revealTimer = null;
     platform.deactivate(win);
     win.webContents.send('panel:hidden', why);
   }
@@ -116,8 +150,10 @@ export function createPanel(ctx) {
   function resize(cardH) {
     if (!win.isVisible()) return; // 숨긴 뒤 렌더러가 비우며 보내는 resize — 최소화된 창의 크기를 건드리지 않는다. show()가 맞춘다
     const h = Math.max(WIN_H_MIN, Math.min(WIN_H_MAX, Math.round(cardH) + PAD * 2));
-    const [w] = win.getSize();
-    if (win.getSize()[1] !== h) win.setSize(w, h, false);
+    const [w, before] = win.getSize();
+    if (before === h) return;
+    win.setSize(w, h, false);
+    if (win.getSize()[1] !== h) log(`panel.resize ${before}→${h} 실패 (지금 ${win.getSize()[1]}, min ${win.getMinimumSize()[1]} max ${win.getMaximumSize()[1]})`); // 크기가 안 먹으면 그 사실을 남긴다(오픈이슈 #10)
   }
 
   win.webContents.once('did-finish-load', warmUp);
@@ -131,5 +167,5 @@ export function createPanel(ctx) {
   win.on('unresponsive', () => { log('panel unresponsive → reload', state()); try { win.webContents.reload(); } catch {} });
   win.on('responsive', () => log('panel responsive'));
 
-  return { win, show, hide, toggle, resize, resetPosition, showOutput, isVisible: () => win.isVisible() };
+  return { win, show, hide, toggle, resize, painted, resetPosition, showOutput, isVisible: () => win.isVisible() };
 }
