@@ -218,6 +218,13 @@ async function smoke(ctx) {
   await sleep(500);
   // 렌더러에 질의를 넣어 그린 상태를 찍는다 — panel.js가 input 이벤트로 질의한다
   const smokeQuery = process.env.SMOKE_QUERY ?? 'chrome'; // 캡처에 넣을 질의 — 결과가 있는 화면을 찍는다
+  // 지름길 힌트(D-36) — 캡처 질의의 첫 항목을 골랐다면 무엇을 알려 줄지. 실행은 하지 않는다
+  {
+    const r = await ctx.sources.query(smokeQuery, 0);
+    const top = r.items[0];
+    const c = top ? await ctx.hintFor(top, smokeQuery) : null;
+    console.log(`smoke: 힌트 ${JSON.stringify(smokeQuery)} → ${top ? top.title : '(결과 없음)'} → ${c ? `다음엔 ‹${c}›` : '없음(이미 짧거나 첫 줄로 못 옴)'}`);
+  }
   await ctx.panel.win.webContents.executeJavaScript(`(() => { const i = document.getElementById('q'); i.value = ${JSON.stringify(smokeQuery)}; i.dispatchEvent(new Event('input')); })()`);
   await sleep(600);
   const out = process.argv[process.argv.indexOf('--smoke') + 1]?.endsWith('.png')

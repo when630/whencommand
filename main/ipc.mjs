@@ -7,7 +7,9 @@ import { SCRIPTS_DIR } from './sources/scripts.mjs';
 import { APPS_DIR } from './sources/siblings.mjs';
 import { usageOf } from './manifest.mjs';
 import { updateLine } from './update.mjs';
+import { log } from './log.mjs';
 import { actionsFor, altAction } from './actions.mjs';
+import { candidates, saves } from './hint.mjs';
 
 // 스크립트 실행 → 출력 길이로 가른다(D-17). 3줄 이하 성공은 토스트(한 줄이면 복사), 그 밖은 패널이 자란다(EXT-04·05).
 // 패널은 이미 숨겨진 상태다 — 긴 출력·실패일 때만 다시 보인다.
@@ -71,10 +73,36 @@ export function registerIpc(ctx) {
     let action = item.action;
     if (actionId) action = actionsFor(item).find((x) => x.id === actionId)?.action ?? item.action;
     else if (alt) action = altAction(item) ?? item.action;
+    const typed = ctx.sources.lastQuery();
     ctx.panel.hide('run'); // 먼저 숨긴다 — 앱이 뜨는 동안 입력줄이 남아 있으면 느려 보인다
     const ok = await runAction(ctx, { ...item, action });
     if (ok && item.source !== 'calc') ctx.store.pick(item.key, item.source); // 계산 결과는 랭킹을 타지 않는다
+    if (ok && !actionId && !alt) hintShortcut(ctx, item, typed).catch(() => {}); // 기다리지 않는다 — 실행이 힌트에 막히면 안 된다
     return ok;
+  }
+
+  // 지름길 힌트(SRCH-11, D-36) — 방금 고른 것을 더 짧게 부르는 입력이 있으면 한 번 알려 준다. "다음엔 ‹ㅋㄹ›".
+  // 후보(hint.mjs)를 짧은 것부터 실제 검색(probe)에 넣어 그 항목이 첫 줄에 오는 가장 짧은 것을 찾는다 — 방금 고른 것이 랭킹에 반영된 뒤라
+  // 다음에 실제로 첫 줄에 온다. 세션에 항목마다 한 번. 스크립트·파일·계산은 뺀다(스크립트는 출력 토스트와 겹치고, 파일·계산은 매번 다르다)
+  ctx.hinted ??= new Set();
+  ctx.hintFor = (item, typed) => hintFor(ctx, item, typed); // 스모크가 부작용 없이 힌트만 찍어 본다
+  async function hintShortcut(ctx, item, typed) {
+    if (ctx.hinted.has(item.key) || ctx.smoke) return;
+    const c = await hintFor(ctx, item, typed);
+    if (!c) return;
+    ctx.hinted.add(item.key);
+    log('hint', item.title, `${typed} → ${c}`);
+    ctx.toast?.show({ title: item.title, body: `다음엔 ‹${c}› 만 쳐도 첫 줄입니다`, icon: '↯' });
+  }
+  // 힌트 계산만 — 후보를 짧은 것부터 probe에 넣어 그 항목이 첫 줄에 오는 가장 짧은 것. 없으면 null
+  async function hintFor(ctx, item, typed) {
+    if (!item || !typed || item.fallback || item.intent || !['apps', 'siblings', 'system', 'builtin'].includes(item.source)) return null;
+    for (const c of candidates(item.title, item.aliases)) {
+      if (!saves(typed, c)) continue;
+      const top = await ctx.sources.probe(c);
+      if (top[0]?.key === item.key) return c;
+    }
+    return null;
   }
   ipcMain.handle('item:run', (_e, key) => runItem(key, false));
   ipcMain.handle('item:alt', (_e, key) => runItem(key, true));

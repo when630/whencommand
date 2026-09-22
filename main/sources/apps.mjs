@@ -47,7 +47,7 @@ export default {
     for (const a of cache) {
       const m = matchWithAliases(q, a.name, a.aliases);
       // 별칭으로 걸렸으면 왜 걸렸는지 부제로 — 제목에는 강조할 글자가 없다
-      if (m.score > 0) out.push({ ...toItem(a), base: m.score, positions: m.positions, via: m.via, subtitle: m.via === 'alias' ? `별칭 ${m.alias}` : null });
+      if (m.score > 0) out.push({ ...toItem(a), aliases: a.aliases, base: m.score, positions: m.positions, via: m.via, subtitle: m.via === 'alias' ? `별칭 ${m.alias}` : null });
     }
     return out;
   },

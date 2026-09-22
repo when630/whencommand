@@ -24,6 +24,7 @@ export function createSources(ctx) {
   // 렌더러는 key만 돌려준다 — 직전 결과를 들고 있어야 item:run이 무엇인지 안다
   let last = new Map();
   let lastSeq = 0; // 늦게 온 답이 아직 보고 있는 질의의 것인지 가리는 순번 — 렌더러가 매긴다
+  let lastQuery = ''; // 고른 순간 무엇을 치고 있었나 — 지름길 힌트(D-36)가 "그보다 짧은가"를 잰다
 
   const remember = (items) => {
     last = new Map(items.map((it) => [it.key, it]));
@@ -46,6 +47,7 @@ export function createSources(ctx) {
     async query(raw, seq = 0) {
       const q = String(raw ?? '').trim();
       lastSeq = seq;
+      lastQuery = q;
       const picks = ctx.store.picks();
       if (!q) return { seq, query: q, items: remember([]), empty: true }; // 빈 입력은 입력줄만(D-18)
       const results = [];
@@ -74,5 +76,12 @@ export function createSources(ctx) {
       return { seq, query: q, items, fallback, empty: false, pending, notice: wantFiles ? files.notice() : null, appCount: apps.count() };
     },
     find: (key) => last.get(key) ?? null,
+    lastQuery: () => lastQuery,
+    // 부작용 없는 검색(D-36) — 빠른 공급원만, last·순번·늦은 합류를 건드리지 않는다. 지름길 후보가 정말 첫 줄에 오는지 재는 데 쓴다
+    async probe(q) {
+      const results = [];
+      for (const s of fast) results.push(...(await s.query(q, ctx)));
+      return rank(results, ctx.store.picks()).slice(0, MAX_ROWS);
+    },
   };
 }
