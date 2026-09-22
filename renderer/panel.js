@@ -80,7 +80,7 @@ function row(it, i) {
   const calc = it.source === 'calc';
   return `<div class="row${calc ? ' calc' : ''}${i === sel ? ' sel' : ''}" data-i="${i}" data-key="${esc(it.key)}">
     ${avatar(it)}
-    <span class="tin"><span class="tt">${calc ? esc(it.title) : highlight(it.title, it.positions)}</span>${it.subtitle ? `<span class="sb">${esc(it.subtitle)}</span>` : ''}</span>
+    <span class="tin"><span class="tt">${calc ? esc(it.title) : highlight(it.title, it.positions)}</span>${it.subtitle ? `<span class="sb">${it.intent ? '→ ' : ''}${esc(it.subtitle)}</span>` : ''}</span>
     ${chip(it)}<span class="kb">↵</span></div>`;
 }
 

@@ -8,6 +8,7 @@
 
 export const PROTOCOL = 1;
 const ID = /^[a-z][a-z0-9-]{1,31}$/;
+const INTENT_WORDS = new Set(['schedule', 'todo', 'note', 'person', 'music']); // 의도 어휘(D-35) — intent.mjs INTENTS와 같다
 
 function bad(error) {
   return { ok: false, error };
@@ -36,7 +37,9 @@ export function parseManifest(text) {
       if (a.type != null && a.type !== 'string') return bad(`command ${c.id}의 arg ${a.name}: type은 string만 — v1`);
       args.push({ name: a.name, type: 'string', optional: a.optional === true });
     }
-    commands.push({ id: c.id, title: c.title.trim(), description: typeof c.description === 'string' ? c.description : '', args });
+    // intents(선택, D-35) — 이 명령이 받을 의도. 모르는 낱말은 조용히 버린다(규약이 늘어도 옛 읽는 쪽이 깨지지 않게)
+    const intents = Array.isArray(c.intents) ? c.intents.filter((w) => typeof w === 'string' && INTENT_WORDS.has(w)) : [];
+    commands.push({ id: c.id, title: c.title.trim(), description: typeof c.description === 'string' ? c.description : '', args, ...(intents.length ? { intents } : {}) });
   }
   return {
     ok: true,

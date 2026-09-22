@@ -7,6 +7,7 @@ import path from 'node:path';
 import { match } from '../search.mjs';
 import { parseManifest, splitCommand, buildUrl, missingArg, fallbackCommands } from '../manifest.mjs';
 import { platform } from '../platform/index.mjs';
+import { routeIntents } from '../intent.mjs';
 
 export const APPS_DIR = path.join(os.homedir(), '.when', 'apps');
 const NAME_WEIGHT = 0.7; // 앱 이름으로 걸린 것(`노트` → WHENNOTE의 모든 명령)은 제목으로 걸린 것보다 뒤에
@@ -95,6 +96,12 @@ export default {
   count: () => apps.length,
   apps: () => apps,
   skipped: () => skipped,
+  // 의도 라우팅(SRCH-10, D-35) — "담주 화 3시 김부장 미팅"이면 명령 이름 없이도 일정 추가가 첫 줄에 온다. 입력 전체가 인자.
+  // 점수는 무게가 클수록 높되 1을 넘지 않는다 — 제목을 정확히 친 명령(1)을 이기지 않는다. 최대 둘
+  intents(q) {
+    return routeIntents(q, apps).slice(0, 2).map(({ manifest: m, command: c, weight }) =>
+      ({ ...toItem(m, c, q, Math.min(0.98, 0.8 + weight * 0.03), null, 'intent'), intent: true }));
+  },
   // 폴백(D-32) — 결과가 없을 때 입력 전체를 인자로 넘기는 명령들. key는 보통 명령과 같아 고르면 같은 항목의 랭킹이 오른다
   fallback(q) {
     const out = [];

@@ -50,6 +50,9 @@ export function createSources(ctx) {
       if (!q) return { seq, query: q, items: remember([]), empty: true }; // 빈 입력은 입력줄만(D-18)
       const results = [];
       for (const s of fast) results.push(...(await s.query(q, ctx)));
+      // 의도 라우팅(D-35) — 문장에서 짚은 형제 앱 명령. 제목으로 이미 걸린 같은 명령이 있으면 그쪽(인자 분리가 더 정확하다)을 남긴다
+      const have = new Set(results.map((it) => it.key));
+      for (const it of siblings.intents(q)) if (!have.has(it.key)) results.push(it);
       const items = rank(results, picks).slice(0, MAX_ROWS).map(withActions);
       // 폴백(SRCH-09, D-32) — 빠른 공급원이 0개면 "이 글로 할 수 있는 것": 인자를 받는 형제 앱 명령 + `# fallback: yes` 스크립트.
       // 렌더러는 늦은 파일 답까지 0개일 때만 이걸 보인다. 순서는 역시 랭킹(D-10) — 자주 고른 폴백이 위로
