@@ -7,11 +7,12 @@ import { SCRIPTS_DIR } from './sources/scripts.mjs';
 import { APPS_DIR } from './sources/siblings.mjs';
 import { usageOf } from './manifest.mjs';
 import { updateLine } from './update.mjs';
+import { actionsFor, altAction } from './actions.mjs';
 
 // 스크립트 실행 → 출력 길이로 가른다(D-17). 3줄 이하 성공은 토스트(한 줄이면 복사), 그 밖은 패널이 자란다(EXT-04·05).
 // 패널은 이미 숨겨진 상태다 — 긴 출력·실패일 때만 다시 보인다.
-export async function runScript(ctx, { title, icon }, file) {
-  const r = await ctx.sources.scripts.run(file);
+export async function runScript(ctx, { title, icon }, file, args = []) {
+  const r = await ctx.sources.scripts.run(file, args);
   if (route(r) === 'toast') {
     const text = r.stdout.trim();
     const copied = lineCount(text) === 1;
@@ -29,7 +30,9 @@ async function runAction(ctx, item) {
     case 'open-app':
       return platform.openApp(a.path);
     case 'run-script':
-      return runScript(ctx, item, a.path);
+      return runScript(ctx, item, a.path, a.args ?? []);
+    case 'system': // 시스템 명령(EXT-07) — 실행 사양은 platform이 안다
+      return ctx.sources.system.run(a.id);
     case 'copy':
       clipboard.writeText(String(a.text ?? ''));
       return true;
@@ -61,17 +64,21 @@ export function registerIpc(ctx) {
   ipcMain.handle('query:run', (_e, q, seq) => ctx.sources.query(q, seq));
   ipcMain.handle('icon:get', (_e, paths) => ctx.icons.get(paths)); // 화면에 보이는 줄의 아이콘만(LNCH-04, D-23)
 
-  // alt=true면 보조 동작(⌘·Ctrl+Enter) — 항목에 alt가 없으면 본 동작과 같다
-  async function runItem(key, alt = false) {
+  // 본 동작(Enter) · 보조 동작(⌘·Ctrl+Enter, actions.mjs altAction — 없으면 본 동작과 같다) · 액션 패널에서 고른 동작(actionId, PANEL-12)
+  async function runItem(key, alt = false, actionId = null) {
     const item = ctx.sources.find(key);
     if (!item) return false;
+    let action = item.action;
+    if (actionId) action = actionsFor(item).find((x) => x.id === actionId)?.action ?? item.action;
+    else if (alt) action = altAction(item) ?? item.action;
     ctx.panel.hide('run'); // 먼저 숨긴다 — 앱이 뜨는 동안 입력줄이 남아 있으면 느려 보인다
-    const ok = await runAction(ctx, alt && item.alt ? { ...item, action: item.alt } : item);
+    const ok = await runAction(ctx, { ...item, action });
     if (ok && item.source !== 'calc') ctx.store.pick(item.key, item.source); // 계산 결과는 랭킹을 타지 않는다
     return ok;
   }
   ipcMain.handle('item:run', (_e, key) => runItem(key, false));
   ipcMain.handle('item:alt', (_e, key) => runItem(key, true));
+  ipcMain.handle('item:action', (_e, key, id) => runItem(key, false, String(id ?? '')));
 
   // 출력 모드의 키(EXT-04·05): ↵ 다시 실행 · ⌘/Ctrl+↵ 스크립트 열기 · ⌘/Ctrl+C 복사
   ipcMain.handle('script:rerun', async (_e, file) => {

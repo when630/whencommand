@@ -45,18 +45,18 @@ function scan() {
   return out;
 }
 
-const toItem = (s) => ({
+const toItem = (s, args = []) => ({
   key: `scripts:${s.path}`,
   source: 'scripts',
   title: s.name,
   subtitle: s.description || null,
   icon: s.icon,
-  action: { type: 'run-script', path: s.path },
+  action: { type: 'run-script', path: s.path, args },
 });
 
-// 실행 — stdout·stderr·종료 코드·걸린 시간. 시작 자체가 실패하면(실행기 없음·권한) 그 오류가 stderr다.
-export function run(file) {
-  const runner = platform.scriptRunner(file);
+// 실행 — stdout·stderr·종료 코드·걸린 시간. 시작 자체가 실패하면(실행기 없음·권한) 그 오류가 stderr다. args는 스크립트의 첫 인자부터(D-32)
+export function run(file, args = []) {
+  const runner = platform.scriptRunner(file, args);
   const t0 = Date.now();
   if (!runner) return Promise.resolve({ code: null, stdout: '', stderr: `실행기를 모르는 확장자입니다: ${path.basename(file)}`, ms: 0 });
   return new Promise((resolve) => {
@@ -99,6 +99,10 @@ export default {
   count: () => cache.length,
   byPath: (p) => { const r = path.resolve(p); return cache.find((s) => path.resolve(s.path) === r) ?? null; }, // 출력 모드의 "다시 실행"이 경로만 들고 온다
   run,
+  // 폴백(D-32) — `# fallback: yes`를 선언한 스크립트에 입력 전체를 첫 인자로. 결과가 없을 때만 보인다
+  fallback(q) {
+    return cache.filter((s) => s.fallback).map((s) => ({ ...toItem(s, [q]), subtitle: `“${q}”`, base: 1, fallback: true }));
+  },
   async query(q) {
     const out = [];
     for (const s of cache) {

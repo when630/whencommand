@@ -112,18 +112,22 @@ export default {
   // 스크립트 실행기(EXT-03) — 확장자로 정한다. Windows는 .ps1(PowerShell)·.cmd/.bat(cmd). 모르는 확장자는 null.
   // ⚠ 한국어 Windows의 콘솔 코드 페이지는 cp949라, 출력 인코딩을 UTF-8로 못 박지 않으면 한글 출력이 전부 깨진다.
   //   그래서 -File 대신 -Command로 감싸 [Console]::OutputEncoding을 먼저 세운다. cmd는 chcp 65001.
-  scriptRunner(file) {
+  // args는 폴백(D-32)이 넘기는 입력 전체 — 스크립트의 첫 인자($args[0]·%1·$1)로 간다
+  scriptRunner(file, args = []) {
     const ext = path.extname(file).toLowerCase();
     if (ext === '.ps1') {
-      const quoted = `'${file.replace(/'/g, "''")}'`;
+      const psq = (s) => `'${String(s).replace(/'/g, "''")}'`;
       return {
         cmd: 'powershell',
         args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command',
           // 스크립트가 없거나 마지막 명령이 실패하면 $?가 false다 — $LASTEXITCODE만 보면 0으로 끝나 실패가 묻힌다(EXT-05)
-          `[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; $OutputEncoding=[System.Text.Encoding]::UTF8; & ${quoted}; if (-not $?) { exit 1 }; exit $LASTEXITCODE`],
+          `[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; $OutputEncoding=[System.Text.Encoding]::UTF8; & ${[file, ...args].map(psq).join(' ')}; if (-not $?) { exit 1 }; exit $LASTEXITCODE`],
       };
     }
-    if (ext === '.cmd' || ext === '.bat') return { cmd: 'cmd.exe', args: ['/d', '/s', '/c', `chcp 65001>nul & "${file}"`] };
+    if (ext === '.cmd' || ext === '.bat') {
+      const cq = (s) => `"${String(s).replace(/"/g, '')}"`; // cmd에는 안전한 따옴표 이스케이프가 없다 — 큰따옴표는 뺀다
+      return { cmd: 'cmd.exe', args: ['/d', '/s', '/c', `chcp 65001>nul & ${[file, ...args].map(cq).join(' ')}`] };
+    }
     return null;
   },
 
@@ -212,6 +216,18 @@ export default {
         '',
       ].join('\r\n'),
     };
+  },
+
+  // 시스템 명령(EXT-07, D-33) — 셸 없이 execFile로 돈다. 저장하는 것은 없다. 종료·재시작은 넣지 않는다 — 되돌릴 수 없고 입력줄에서 실수하기 쉽다
+  systemCommands() {
+    const ps = (script) => ({ cmd: 'powershell', args: ['-NoProfile', '-NonInteractive', '-Command', script] });
+    return [
+      { id: 'lock', title: '화면 잠금', description: '지금 잠급니다 — 로그인 화면으로', icon: '⌁', exec: { cmd: 'rundll32.exe', args: ['user32.dll,LockWorkStation'] } },
+      { id: 'sleep', title: '절전', description: '잠자기 — 최대 절전이 켜져 있으면 최대 절전으로 들어갑니다', icon: '☾', exec: { cmd: 'rundll32.exe', args: ['powrprof.dll,SetSuspendState', '0,1,0'] } },
+      { id: 'empty-trash', title: '휴지통 비우기', description: '되돌릴 수 없습니다', icon: '♺', exec: ps('Clear-RecycleBin -Force -ErrorAction SilentlyContinue') },
+      { id: 'mute', title: '음소거 전환', description: '소리를 끄거나 켭니다', icon: '◌', exec: ps('(New-Object -ComObject WScript.Shell).SendKeys([char]173)') },
+      { id: 'dark-mode', title: '다크 모드 전환', description: '앱·작업 표시줄 테마를 뒤집습니다', icon: '◐', exec: ps("$k='HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize'; $v=(Get-ItemProperty $k).AppsUseLightTheme; $n=1-$v; Set-ItemProperty $k AppsUseLightTheme $n; Set-ItemProperty $k SystemUsesLightTheme $n") },
+    ];
   },
 
   // 아이콘을 뽑을 경로(LNCH-04). 시작 메뉴 항목은 .lnk라 그대로 물으면 "바로가기" 그림이 온다 — 대상을 풀어 그쪽 아이콘을 받는다.

@@ -52,6 +52,11 @@ body { padding: 28px; user-select: none; }             /* 28px = main/panel.mjs 
 .chip .d { width: 6px; height: 6px; border-radius: 99px; flex: none; background: var(--text-muted); }
 .chip.sib { color: #8fa9d8; } .chip.sib .d { background: var(--accent); }
 .chip.scr .d { background: var(--success); }
+.chip.sys .d { background: var(--warning); }
+/* 폴백·액션 패널의 머리글 한 줄(D-32·D-34) — 행이 아니라서 방향키 대상이 아니다 */
+.fbh { padding: 8px 16px 4px; font-size: 10.5px; font-family: var(--font-mono); color: var(--text-muted); letter-spacing: .3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fbh kbd { font-size: 9.5px; padding: 0 4px; }
+.row.act .ic { background: var(--bg-inset); border: 1px solid var(--border); color: var(--text-secondary); font-size: 12px; }
 .kb { flex: none; font-family: var(--font-mono); font-size: 10px; background: var(--bg-inset); border: 1px solid var(--border);
       border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--text-muted); line-height: 1.4; visibility: hidden; }
 .row.sel .kb { visibility: visible; }

@@ -27,6 +27,7 @@ const CONTRACT = [
   'listApps',
   'openApp',
   'scriptRunner',
+  'systemCommands',
   'exampleScript',
   'createFileSearch',
   'expandPath',
@@ -138,3 +139,12 @@ test('미검증 경고는 검증되지 않은 것에만 남아 있다', () => {
   assert.match(read('win32.mjs'), /남은 미검증.*#2/);
   assert.match(read('darwin.mjs'), /아직 실기기에서 검증되지 않았다/);
 });
+
+test('시스템 명령은 두 OS가 같은 id 다섯을 낸다 — 종료·재시작은 없다 (EXT-07, D-33)', () => {
+  for (const impl of ['win32.mjs', 'darwin.mjs']) {
+    const src = read(impl);
+    for (const id of ['lock', 'sleep', 'empty-trash', 'mute', 'dark-mode']) assert.match(src, new RegExp(`id: '${id}'`), `${impl}에 시스템 명령 ${id}가 없다`);
+    assert.ok(!/id: '(shutdown|restart|reboot)'/.test(src), `${impl}에 종료·재시작이 있다`);
+  }
+});
+

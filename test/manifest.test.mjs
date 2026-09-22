@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseManifest, splitCommand, buildUrl, missingArg, usageOf } from '../main/manifest.mjs';
+import { parseManifest, splitCommand, buildUrl, missingArg, usageOf, fallbackCommands } from '../main/manifest.mjs';
 
 const GOOD = {
   protocol: 1,
@@ -73,5 +73,13 @@ test('usageOf: 설정 창의 사용법 한 줄 — 필수 인자는 ‹›, 선�
   // 입력줄 부제(D-22 missingArg)와 같은 인자 이름을 쓴다 — 두 화면이 다른 말을 하면 안 된다
   assert.equal(missingArg(search, ''), 'q');
   assert.match(usageOf(search).line, /‹q›/);
+});
+
+test('fallbackCommands: 결과가 없을 때 입력 전체를 받을 수 있는 것은 첫 string 인자가 있는 명령만 (SRCH-09, D-32)', () => {
+  const { manifest } = parseManifest(JSON.stringify(GOOD));
+  assert.deepEqual(fallbackCommands(manifest).map((c) => c.id), ['capture', 'search']); // open은 인자가 없어 글을 버린다
+  assert.deepEqual(fallbackCommands(null), []);
+  // 폴백 딥링크는 입력 전체가 첫 인자다
+  assert.equal(buildUrl(manifest, manifest.commands[1], '회의록 초안'), 'whennote://search?q=%ED%9A%8C%EC%9D%98%EB%A1%9D%20%EC%B4%88%EC%95%88');
 });
 

@@ -4,7 +4,7 @@ import { parseHeader, nameFromFile, route, locate, lineCount } from '../main/scr
 
 test('헤더: 셔뱅을 건너뛰고 name·description·icon을 읽는다 (EXT-02)', () => {
   const h = parseHeader('#!/bin/sh\n# name: 내 IP\n# description: 로컬 IP 한 줄\n# icon: @\necho hi\n# name: 뒤늦은 주석은 무시\n', 'my-ip.sh');
-  assert.deepEqual(h, { name: '내 IP', description: '로컬 IP 한 줄', icon: '@' });
+  assert.deepEqual(h, { name: '내 IP', description: '로컬 IP 한 줄', icon: '@', fallback: false });
 });
 
 test('헤더: 선언이 없으면 파일명이 이름이다 — -·_는 공백으로', () => {
@@ -48,3 +48,11 @@ test('locate: sh와 PowerShell의 오류 줄 번호를 찾는다, 없으면 null
   assert.equal(locate('error: failed to push some refs', '/x/deploy.sh'), null);
   assert.equal(locate('', ''), null);
 });
+
+test('헤더: `# fallback: yes`면 결과가 없을 때 입력 전체를 첫 인자로 받는 폴백 스크립트다 (SRCH-09, D-32)', () => {
+  assert.equal(parseHeader('# name: 구글\n# fallback: yes\n', 'g.sh').fallback, true);
+  assert.equal(parseHeader('# 이름: 사전\n# 폴백: 예\n', 'dict.ps1').fallback, true);
+  assert.equal(parseHeader('# fallback: no\n', 'x.sh').fallback, false);
+  assert.equal(parseHeader('echo hi\n', 'x.sh').fallback, false);
+});
+

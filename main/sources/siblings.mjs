@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { match } from '../search.mjs';
-import { parseManifest, splitCommand, buildUrl, missingArg } from '../manifest.mjs';
+import { parseManifest, splitCommand, buildUrl, missingArg, fallbackCommands } from '../manifest.mjs';
 import { platform } from '../platform/index.mjs';
 
 export const APPS_DIR = path.join(os.homedir(), '.when', 'apps');
@@ -95,6 +95,12 @@ export default {
   count: () => apps.length,
   apps: () => apps,
   skipped: () => skipped,
+  // 폴백(D-32) — 결과가 없을 때 입력 전체를 인자로 넘기는 명령들. key는 보통 명령과 같아 고르면 같은 항목의 랭킹이 오른다
+  fallback(q) {
+    const out = [];
+    for (const m of apps) for (const c of fallbackCommands(m)) out.push({ ...toItem(m, c, q, 1, null, 'fallback'), fallback: true });
+    return out;
+  },
   async query(q) {
     const out = [];
     for (const m of apps) {

@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('whencommand', {
   onLeave: (cb) => ipcRenderer.on('panel:leave', () => cb()), // 사라지기 시작 — 페이드 아웃(D-31)
   run: (key) => ipcRenderer.invoke('item:run', key),
   alt: (key) => ipcRenderer.invoke('item:alt', key), // ⌘·Ctrl+Enter — 보조 동작(파일이 든 폴더 열기 등)
+  action: (key, id) => ipcRenderer.invoke('item:action', key, id), // 액션 패널(Ctrl·⌘+K)에서 고른 동작(PANEL-12)
   hide: () => ipcRenderer.send('win:hide'),
   resize: (h) => ipcRenderer.send('panel:resize', h),
   onShown: (cb) => ipcRenderer.on('panel:shown', () => cb()),

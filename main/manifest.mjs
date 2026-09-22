@@ -4,6 +4,7 @@
 //   splitCommand   입력이 "명령 제목 + 인자"인지 — `메모 검색 회의록` → '회의록', `메모 검색` → '', 아니면 null
 //   buildUrl       딥링크 — whennote://search?q=%ED%9A%8C%EC%9D%98 (LINK-03)
 //   usageOf        설정 창(D-16·D-25)이 보여 주는 사용법 한 줄 — 입력줄에 무엇을 치면 이 명령이 되는지
+//   fallbackCommands  결과가 없을 때 입력 전체를 첫 인자로 받을 수 있는 명령(D-32) — string 인자가 있는 것만
 
 export const PROTOCOL = 1;
 const ID = /^[a-z][a-z0-9-]{1,31}$/;
@@ -81,5 +82,10 @@ export function usageOf(command) {
   const line = !arg ? command.title : `${command.title} ${arg.optional ? `[${arg.name}]` : `‹${arg.name}›`}`;
   const argNote = !arg ? '' : arg.optional ? `${arg.name}는 빼도 됩니다` : `${arg.name}는 꼭 붙입니다 — 없이 실행하면 앱이 빈 값으로 엽니다`;
   return { line, argNote, description: command.description || '' };
+}
+
+// 폴백(SRCH-09, D-32) — 찾은 것이 없을 때 "이 글로 할 수 있는 것". 첫 string 인자가 있는 명령만 — 인자 없는 명령에 글을 붙여도 버려진다(buildUrl)
+export function fallbackCommands(manifest) {
+  return (manifest?.commands ?? []).filter((c) => c.args?.[0]);
 }
 

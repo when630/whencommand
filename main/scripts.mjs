@@ -1,11 +1,12 @@
 // main/scripts.mjs — 스크립트 명령의 순수 부분(EXT). Electron·fs에 기대지 않아 node --test로 검증한다.
 // 실제 폴더 스캔·실행은 sources/scripts.mjs가, OS별 실행기는 platform/이 맡는다.
 //
-//   parseHeader  상단 주석 → 이름·설명·아이콘(EXT-02). 선언이 없으면 파일명이 이름이다
+//   parseHeader  상단 주석 → 이름·설명·아이콘(EXT-02)·폴백 여부(D-32). 선언이 없으면 파일명이 이름이다
 //   route        출력 길이와 종료 코드 → 'toast' | 'panel'(D-17)
 //   locate       stderr에서 스크립트의 줄 번호를 찾는다 — 실패 화면 마지막 줄 `경로:줄`(EXT-05)
 
-const HEADER_KEYS = { name: 'name', 이름: 'name', description: 'description', desc: 'description', 설명: 'description', icon: 'icon', 아이콘: 'icon' };
+const HEADER_KEYS = { name: 'name', 이름: 'name', description: 'description', desc: 'description', 설명: 'description', icon: 'icon', 아이콘: 'icon', fallback: 'fallback', 폴백: 'fallback' };
+const YES = /^(yes|true|1|y|on|예|네|켬)$/i;
 const COMMENT = /^\s*(?:#|\/\/|::|rem\b)\s?(.*)$/i;
 export const TOAST_MAX_LINES = 3; // D-17 — 이 이하면 토스트, 넘으면 패널이 자란다
 
@@ -17,7 +18,7 @@ export function nameFromFile(filename) {
 // 맨 위 주석 덩어리만 읽는다 — 셔뱅은 건너뛰고, 주석이 아닌 첫 줄에서 멈춘다.
 // `# name: 내 IP` 꼴. 키는 영·한 둘 다 받고, `:`·`=` 어느 쪽이든 된다.
 export function parseHeader(text, filename = '') {
-  const out = { name: nameFromFile(filename) || '스크립트', description: '', icon: '$' };
+  const out = { name: nameFromFile(filename) || '스크립트', description: '', icon: '$', fallback: false };
   const lines = String(text ?? '').split(/\r?\n/);
   for (let i = 0; i < lines.length && i < 40; i++) {
     const line = lines[i];
@@ -30,6 +31,7 @@ export function parseHeader(text, filename = '') {
     const key = HEADER_KEYS[kv[1].toLowerCase()];
     if (!key) continue;
     if (key === 'icon') out.icon = [...kv[2]][0] ?? '$'; // 첫 글자 하나 — 이모지도 한 글자로 센다
+    else if (key === 'fallback') out.fallback = YES.test(kv[2].trim()); // `# fallback: yes` — 결과가 없을 때 입력 전체를 첫 인자로 받는다(D-32)
     else out[key] = kv[2];
   }
   return out;

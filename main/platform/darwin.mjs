@@ -134,13 +134,26 @@ export default {
 
   // 스크립트 실행기(EXT-03) — 확장자로 정한다. macOS는 .sh(sh)·.zsh(zsh)·.bash(bash), 확장자가 없으면 그 파일을 그대로 실행한다
   // (실행 권한이 없으면 spawn이 EACCES로 실패하고 그 사실이 stderr로 보인다). 모르는 확장자는 null.
-  scriptRunner(file) {
+  // args는 폴백(D-32)이 넘기는 입력 전체 — 스크립트의 $1로 간다
+  scriptRunner(file, args = []) {
     const ext = path.extname(file).toLowerCase();
-    if (ext === '.sh') return { cmd: '/bin/sh', args: [file] };
-    if (ext === '.zsh') return { cmd: '/bin/zsh', args: [file] };
-    if (ext === '.bash') return { cmd: '/bin/bash', args: [file] };
-    if (ext === '') return { cmd: file, args: [] };
+    if (ext === '.sh') return { cmd: '/bin/sh', args: [file, ...args] };
+    if (ext === '.zsh') return { cmd: '/bin/zsh', args: [file, ...args] };
+    if (ext === '.bash') return { cmd: '/bin/bash', args: [file, ...args] };
+    if (ext === '') return { cmd: file, args: [...args] };
     return null;
+  },
+
+  // 시스템 명령(EXT-07, D-33) — osascript·pmset. win32와 같은 id 다섯. 종료·재시작은 넣지 않는다
+  systemCommands() {
+    const osa = (script) => ({ cmd: 'osascript', args: ['-e', script] });
+    return [
+      { id: 'lock', title: '화면 잠금', description: '지금 잠급니다 — ⌃⌘Q', icon: '⌁', exec: osa('tell application "System Events" to keystroke "q" using {command down, control down}') },
+      { id: 'sleep', title: '절전', description: '잠자기', icon: '☾', exec: { cmd: 'pmset', args: ['sleepnow'] } },
+      { id: 'empty-trash', title: '휴지통 비우기', description: '되돌릴 수 없습니다', icon: '♺', exec: osa('tell application "Finder" to empty trash') },
+      { id: 'mute', title: '음소거 전환', description: '소리를 끄거나 켭니다', icon: '◌', exec: osa('set volume output muted not (output muted of (get volume settings))') },
+      { id: 'dark-mode', title: '다크 모드 전환', description: '모양을 뒤집습니다', icon: '◐', exec: osa('tell application "System Events" to tell appearance preferences to set dark mode to not dark mode') },
+    ];
   },
 
   // 파일 검색(FILE-01, D-09) — Spotlight 색인을 mdfind로 읽는다. 실측 #8: 한글 2글자 첫 결과 150~200ms, 결과 1만 개짜리는
