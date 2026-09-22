@@ -1,6 +1,6 @@
 // main/lifecycle.mjs — 앱 수명·트레이·전역 단축키·창 소유. 형제 앱 lifecycle.mjs의 뼈대를 따르되 이 앱 것으로 썼다(D-14).
 // OS 분기는 여기 없다 — 전부 platform이 안다(PLAT-01).
-import { app, Tray, Menu, globalShortcut, Notification, shell } from 'electron';
+import { app, BrowserWindow, Tray, Menu, globalShortcut, Notification, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +33,36 @@ export function bootstrap() {
   log(`시작 pid=${process.pid} ${app.isPackaged ? '설치본' : '개발'} ${app.getVersion()}`, process.argv.slice(1));
 
   const ctx = { root: ROOT, quitting: false, panel: null, tray: null, hotkey: null, hotkeyOk: false };
+  ctx.settings = createSettings(path.join(app.getPath('userData'), 'settings.json')); // ready 전에 읽는다 — 아래 GPU 판단에 필요
+
+  // D-28: GPU 프로세스가 죽으면 투명 창은 마지막 프레임을 그대로 보인 채 입력을 받지 않는다 — "한 번 쓰면 그 상태로 굳는다".
+  // 한 번은 렌더러를 다시 그리고, 두 번째부터는 하드웨어 가속을 끈 채 다시 시작한다(설정에 남아 다음 실행에도 꺼져 있다).
+  // 되돌리려면 settings.json의 disableGpu를 지운다. --disable-gpu 인자는 Chromium이 직접 받는다
+  if (ctx.settings.get('disableGpu')) {
+    app.disableHardwareAcceleration();
+    log('하드웨어 가속 꺼짐(settings.disableGpu)');
+  }
+  let gpuGone = 0;
+  app.on('child-process-gone', (_e, d) => {
+    log('child-process-gone', d);
+    if (d.type !== 'GPU' || d.reason === 'clean-exit') return;
+    gpuGone += 1;
+    if (gpuGone >= 2 && !ctx.settings.get('disableGpu')) {
+      ctx.settings.set('disableGpu', true);
+      ctx.settings.flush();
+      log('GPU 프로세스가 두 번 죽었다 → 하드웨어 가속을 끄고 다시 시작');
+      ctx.quitting = true;
+      app.relaunch();
+      app.exit(0);
+      return;
+    }
+    for (const w of BrowserWindow.getAllWindows()) { try { w.webContents.reload(); } catch {} }
+  });
+  // 렌더러가 죽으면 다시 불러온다 — 입력줄이 빈 창으로 남는 대신 다음 단축키에 멀쩡히 뜬다
+  app.on('render-process-gone', (_e, wc, d) => {
+    log('render-process-gone', d);
+    if (d.reason !== 'clean-exit') { try { wc.reload(); } catch {} }
+  });
 
   app.on('second-instance', (_e, argv) => { log('second-instance', argv); ctx.panel?.show(); });
   app.on('window-all-closed', () => log('window-all-closed')); // 창이 닫혀도 트레이에 남는다(PANEL-11)
@@ -46,7 +76,6 @@ export function bootstrap() {
 
   app.whenReady().then(async () => {
     const userData = app.getPath('userData');
-    ctx.settings = createSettings(path.join(userData, 'settings.json'));
     ctx.store = createStore(path.join(userData, 'whencommand.db'));
     ctx.sources = createSources(ctx);
     ctx.panel = createPanel(ctx);

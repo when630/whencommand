@@ -1,6 +1,7 @@
 // main/panel.mjs — 입력줄 창. 미리 만들어 숨겨 두고 show()/hide()만 한다(D-06 — 실측 #6: 29ms vs 새 창 144ms).
 // 보일 때·숨길 때의 활성화 방식은 platform이 안다(실측 #7 — macOS는 app.focus({steal}) / app.hide()).
 import { BrowserWindow, screen } from 'electron';
+import { log } from './log.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { platform } from './platform/index.mjs';
@@ -66,8 +67,12 @@ export function createPanel(ctx) {
     if (win.isVisible()) place();
   }
 
+  // 보이기·숨기기 한 줄 로그 — 다른 PC에서 "한 번 쓰면 굳는다"가 어느 단계인지 로그만으로 좁히기 위해(D-28). 상태는 부르기 전 것
+  const state = () => `visible=${win.isVisible()} minimized=${win.isMinimized()} focused=${win.isFocused()} opacity=${win.getOpacity()} h=${win.getSize()[1]}`;
+
   function show() {
     if (ctx.quitting) return;
+    log('panel.show', state());
     place();
     // 숨겨져 있던 동안의 크기(결과 8줄이었을 수 있다)로 뜬 뒤 입력줄 높이로 줄어드는 것이 두 번째 깜빡임이었다(D-27).
     // 열릴 때 내용은 항상 빈 입력줄이니(panel:hidden·shown에서 비운다) 보이기 전에 그 높이로 맞춘다
@@ -78,6 +83,7 @@ export function createPanel(ctx) {
 
   function hide(why) {
     if (!win.isVisible()) return;
+    log(`panel.hide(${why})`, state());
     platform.deactivate(win);
     win.webContents.send('panel:hidden', why);
   }
@@ -121,6 +127,9 @@ export function createPanel(ctx) {
     if (win.isVisible() && win.getOpacity() > 0 && !ctx.quitting && !ctx.smoke) hide('blur');
   });
   win.on('closed', () => { ctx.panel = null; });
+  // 렌더러가 멈추면(D-28) 다시 불러온다 — 굳은 입력줄을 사용자가 되살릴 방법이 없다
+  win.on('unresponsive', () => { log('panel unresponsive → reload', state()); try { win.webContents.reload(); } catch {} });
+  win.on('responsive', () => log('panel responsive'));
 
   return { win, show, hide, toggle, resize, resetPosition, showOutput, isVisible: () => win.isVisible() };
 }

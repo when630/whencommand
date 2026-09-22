@@ -27,7 +27,8 @@ v0.1.0 공개 뒤: 앱·파일 아이콘(D-23, LNCH-04), WHENNOTE 0.1.1 공개(�
 실측 #2 Windows 확정(`--probe-login`). 형제 앱 다섯 전부 스킴 부착 — WHENNOTE 0.1.1 · WHENWORK 0.2.1 · WHENCALENDAR 0.1.3 · WHENMUSIC(옆 세션, `d9b28f5`) · WHENMAIL 0.8.1. 각 앱의 `add`류 결은 when-protocol README "붙인 앱" 절.
 한글 별칭(D-24, 오픈이슈 #7 해소 — `aliases.mjs` + `~/.whencommand/aliases.json`).
 설정 창 다듬기(D-25) — 형제 앱 줄의 "N개 명령 · 사용법 ›" 캡션을 누르면 명령별 입력 예시가 접혀서 펼쳐진다(`manifest.mjs usageOf`). 창 높이는 작업영역을 넘지 않고 본문이 스크롤된다(860에서 '정보'가 잘리던 것). `SMOKE_SETTINGS=open`. 형제 앱 명령에 설치본의 실제 아이콘(D-26 — 매니페스트 verify 경로를 `path`로 실어 D-23 캐시가 받는다).
-남은 것(순서대로): macOS 실기기에서 FILE·LINK·설치본 첫 실행·실측 #2 검증(오픈이슈 #8) → 오픈이슈 #6(단축키 뒤늦게 뺏김 — macOS만) → v0.2.0(라이브 조회 #2는 v2).
+복구(D-28) — GPU·렌더러 사망 시 reload, GPU 두 번이면 `settings.disableGpu` + relaunch, `panel.show/hide` 상태 로그. 다른 PC 설치본이 한 번 쓰면 굳던 것(오픈이슈 #9, 로그 대기).
+남은 것(순서대로): 오픈이슈 #9(다른 PC 로그 받아 원인 확정) → macOS 실기기에서 FILE·LINK·설치본 첫 실행·실측 #2 검증(오픈이슈 #8) → 오픈이슈 #6(단축키 뒤늦게 뺏김 — macOS만) → v0.2.0(라이브 조회 #2는 v2).
 
 ## 밟으면 아픈 함정 (전부 실측으로 확인된 것 — `docs/03 §11`)
 
