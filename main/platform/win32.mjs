@@ -49,7 +49,9 @@ export default {
   // show() 뒤에 restore()를 부르면 두 번 그려져 깜빡였다(2026-09-21 실사용, D-27)
   activate(win) {
     if (win.isMinimized()) win.restore();
-    if (!win.isVisible()) win.show();
+    // restore()만으로는 isVisible()이 true가 되지만 웹 콘텐츠는 '숨김'으로 남아 **프레임을 내지 않는다** — 직전 화면이 굳은 채 보이고
+    // 키가 안 듣는다(2026-09-22 실기기 재현, D-29). show()는 보이는 창에도 다시 불러야 렌더러가 WasShown을 받는다
+    win.show();
     win.focus();
   },
   deactivate(win) {

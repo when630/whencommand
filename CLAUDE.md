@@ -27,8 +27,9 @@ v0.1.0 공개 뒤: 앱·파일 아이콘(D-23, LNCH-04), WHENNOTE 0.1.1 공개(�
 실측 #2 Windows 확정(`--probe-login`). 형제 앱 다섯 전부 스킴 부착 — WHENNOTE 0.1.1 · WHENWORK 0.2.1 · WHENCALENDAR 0.1.3 · WHENMUSIC(옆 세션, `d9b28f5`) · WHENMAIL 0.8.1. 각 앱의 `add`류 결은 when-protocol README "붙인 앱" 절.
 한글 별칭(D-24, 오픈이슈 #7 해소 — `aliases.mjs` + `~/.whencommand/aliases.json`).
 설정 창 다듬기(D-25) — 형제 앱 줄의 "N개 명령 · 사용법 ›" 캡션을 누르면 명령별 입력 예시가 접혀서 펼쳐진다(`manifest.mjs usageOf`). 창 높이는 작업영역을 넘지 않고 본문이 스크롤된다(860에서 '정보'가 잘리던 것). `SMOKE_SETTINGS=open`. 형제 앱 명령에 설치본의 실제 아이콘(D-26 — 매니페스트 verify 경로를 `path`로 실어 D-23 캐시가 받는다).
-복구(D-28) — GPU·렌더러 사망 시 reload, GPU 두 번이면 `settings.disableGpu` + relaunch, `panel.show/hide` 상태 로그. 다른 PC 설치본이 한 번 쓰면 굳던 것(오픈이슈 #9, 로그 대기).
-남은 것(순서대로): 오픈이슈 #9(다른 PC 로그 받아 원인 확정) → macOS 실기기에서 FILE·LINK·설치본 첫 실행·실측 #2 검증(오픈이슈 #8) → 오픈이슈 #6(단축키 뒤늦게 뺏김 — macOS만) → v0.2.0(라이브 조회 #2는 v2).
+복구(D-28) — GPU·렌더러 사망 시 reload, GPU 두 번이면 `settings.disableGpu` + relaunch, `panel.show/hide` 상태 로그.
+"한 번 쓰면 굳는다" 원인 확정·수정(D-29, 오픈이슈 #9 해소) — 0.1.4 회귀: Windows `restore()` 뒤 `show()`를 빼서 렌더러가 프레임을 안 냈다. 재현·검증은 합성 키 + 화면 캡처(스크래치 `repro.ps1`).
+남은 것(순서대로): 오픈이슈 #10(`panel:resize`가 Windows에서 안 먹음 — 투명 영역 클릭) → macOS 실기기에서 FILE·LINK·설치본 첫 실행·실측 #2 검증(오픈이슈 #8) → 오픈이슈 #6(단축키 뒤늦게 뺏김 — macOS만) → v0.2.0(라이브 조회 #2는 v2).
 
 ## 밟으면 아픈 함정 (전부 실측으로 확인된 것 — `docs/03 §11`)
 
@@ -39,7 +40,7 @@ v0.1.0 공개 뒤: 앱·파일 아이콘(D-23, LNCH-04), WHENNOTE 0.1.1 공개(�
 5. **`node:sqlite`는 Electron 내장 Node에만 있다.** 개발 PC의 Node 22.12 `node --test`에서는 못 연다 — `store.mjs` 테스트는 Electron 안(`--smoke`)에서만 검증된다
 6. **초성 검색은 한글 이름에만 걸린다.** 영문 앱은 `main/aliases.mjs`의 한글 별칭 표(D-24)로 잡는다 — `ㅋㄹ`→크롬→Google Chrome. 표에 없는 앱은 `~/.whencommand/aliases.json`. 영문을 한글 자판으로 친 것(`초개ㅡㄷ`→chrome)은 `keyboardToLatin`이 되돌린다
 7. **퍼지 점수에서 연속 매칭 가산을 단어 첫 글자보다 낮게 두면 흩어진 머리글자가 항상 이긴다** — `chr`이 Chrome보다 Cache Handler Runner에 붙었다. 지금은 같다(`search.mjs` 주석)
-8. **Windows는 `win.hide()`만으로 직전 창에 포커스가 돌아오지 않는다.** 항상-위·작업표시줄-제외 창을 숨기면 OS가 아무 창이나 고른다. `minimize()`를 거쳐 숨기면 돌아오고, 그래서 보일 때 `restore()`가 먼저다 — `platform/win32.mjs activate`가 restore→show→focus를 한 번에 맡는다. `panel.show()`에서 `win.show()`를 따로 부르면 두 번 그려져 깜빡인다(D-27). 단축키는 macOS와 반대로 **먼저 등록한 앱이 이기고** `register()`가 false를 정직하게 돌려준다(Raycast for Windows가 떠 있으면 FAIL)
+8. **Windows는 `win.hide()`만으로 직전 창에 포커스가 돌아오지 않는다.** 항상-위·작업표시줄-제외 창을 숨기면 OS가 아무 창이나 고른다. `minimize()`를 거쳐 숨기면 돌아오고, 그래서 보일 때 `restore()`가 먼저다 — `platform/win32.mjs activate`가 restore→**show(무조건)**→focus를 한 번에 맡는다. `restore()`만 부르면 창은 보이는데 **렌더러가 프레임을 내지 않아 직전 화면이 굳은 채 키를 안 받는다** — 0.1.4가 그랬다(D-29). 반대로 `panel.show()`에서 show를 restore보다 먼저 부르면 두 번 그려져 깜빡인다(D-27) 단축키는 macOS와 반대로 **먼저 등록한 앱이 이기고** `register()`가 false를 정직하게 돌려준다(Raycast for Windows가 떠 있으면 FAIL)
 9. **직전 인스턴스를 죽인 직후 바로 띄우면 단일 인스턴스 락에 걸려 조용히 종료된다**(exit 0, 출력 없음). 몇 초 뒤 다시 띄우면 된다. `npm start`를 멈춰도 자식 `electron.exe`는 남는다 — whencommand 것만 골라 끄고, 개발 실행은 `Start-Process`로 셸과 분리해 띄운다
 10. **PowerShell은 실패해도 exit 0으로 끝날 수 있다.** 파일이 없거나 마지막 명령이 실패하면 `$LASTEXITCODE`가 비어 있다 — `$?`를 함께 본다(`platform/win32.mjs scriptRunner`). 그리고 한국어 콘솔은 cp949라 `[Console]::OutputEncoding`을 UTF-8로 먼저 세우지 않으면 한글 출력이 깨진다
 11. **Windows Search의 `System.ItemPathDisplay`는 경로가 아니다** — `C:\사용자\forcs\…`처럼 현지화된 표시용이다. 실제 경로는 `System.ItemUrl`(`file:C:/Users/…`)에서 뽑는다(`platform/win32-search.ps1`). PowerShell은 질의마다 띄우면 ~400ms라 한 번 띄워 stdin으로 묻는다
