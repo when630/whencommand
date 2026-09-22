@@ -52,6 +52,7 @@ Raycast에서 가져온 셋(D-32·33·34) — 폴백(결과 0개면 인자 받�
 14. **Windows 시작 메뉴 항목의 아이콘은 `.lnk`를 그대로 물으면 "바로가기" 그림이 온다.** `shell.readShortcutLink`로 대상을 풀어 그쪽을 물어야 한다(`platform/win32.mjs resolveIconPath`). UWP(`shell:AppsFolder`)는 `getFileIcon`이 못 뽑는다 — 첫 글자 상자로 둔다
 15. **스모크 경로 인자는 슬래시로.** Git Bash에서 `"$S\\$t.ps1"`는 `$t`가 확장되지 않아 `scripts$t.ps1`로 넘어갔다 — `cygpath -m`으로 `C:/…` 꼴을 쓴다
 16. **`app.getFileIcon`은 셸이 처음 보는 exe에 기본 실행 파일 아이콘을 준다.** 없는 exe와 같은 그림이다 — 실패로 던지지 않으니 결과만 보면 성공 같다. 탐색기가 한 번도 안 보여 준 `%LOCALAPPDATA%\Programs\…` 설치본(형제 앱 다섯 전부)이 그랬고 Chrome·메모장은 멀쩡했다. `icons.mjs`가 없는 exe의 아이콘과 비교해 같으면 `platform.extractIcons`(.NET `ExtractAssociatedIcon`)로 다시 뽑는다. 재현·확인은 `--probe-icons`(`ICON_PROBE_PATHS=a;b`)
+17. **한글 IME가 켜져 있으면 Ctrl+글자의 `e.key`가 한글 자모다** — Ctrl+K는 `'ㅏ'`, Ctrl+C는 `'ㅊ'`. `e.key.toLowerCase() === 'k'`는 영문 상태에서만 맞아 "동작 목록이 안 나온다"(0.1.8)가 됐다. 글자 단축키는 자판 위치 `e.code`('KeyK')로 본다 — 설정 창의 단축키 잡기(`accelKeyOf`)가 이미 그렇게 한다. 영문 상태로만 시험하면 절대 안 드러난다(함정 #12와 같은 종류)
 
 ## 스택
 

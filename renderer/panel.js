@@ -182,7 +182,7 @@ function closeActions() {
 }
 function actionKeys(e) {
   const mod = e.metaKey || e.ctrlKey;
-  if (e.key === 'Escape' || (mod && e.key.toLowerCase() === 'k')) { e.preventDefault(); closeActions(); return; }
+  if (e.key === 'Escape' || (mod && e.code === 'KeyK')) { e.preventDefault(); closeActions(); return; }
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault();
     const n = act.item.actions.length;
@@ -236,7 +236,7 @@ function outputKeys(e) {
   if (e.key === 'Escape') { e.preventDefault(); window.whencommand.hide(); return; }
   if (e.key === 'Enter' && mod) { e.preventDefault(); window.whencommand.openScript(out.path); window.whencommand.hide(); return; }
   if (e.key === 'Enter') { e.preventDefault(); window.whencommand.rerun(out.path); return; }
-  if (mod && e.key.toLowerCase() === 'c' && !window.getSelection()?.toString()) {
+  if (mod && e.code === 'KeyC' && !window.getSelection()?.toString()) {
     e.preventDefault();
     window.whencommand.copy(outputText());
     $hint.textContent = '복사됨';
@@ -250,8 +250,8 @@ document.addEventListener('keydown', (e) => {
   if (out) return outputKeys(e);
   if (act) return actionKeys(e);
   if (e.key === 'Escape') { e.preventDefault(); window.whencommand.hide(); return; }
-  // Ctrl·⌘+K — 고른 항목의 동작 전부(PANEL-12)
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openActions(); return; }
+  // Ctrl·⌘+K — 고른 항목의 동작 전부(PANEL-12). 한글 IME가 켜져 있으면 e.key가 'k'가 아니라 'ㅏ'다 — 자판 위치(e.code)로 본다(함정 #17)
+  if ((e.metaKey || e.ctrlKey) && e.code === 'KeyK') { e.preventDefault(); openActions(); return; }
   if (e.key === 'ArrowDown') { e.preventDefault(); move(1); return; }
   if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); return; }
   // ⌘·Ctrl+Enter — 보조 동작(파일이 든 폴더 열기, FILE-04). 없는 항목이면 본 동작과 같다
