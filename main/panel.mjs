@@ -82,7 +82,9 @@ export function createPanel(ctx) {
   // 빈 입력줄로 바뀐다(0.1.6 실사용: "전에 검색했던 게 한 번 보이고 새로 뜬다"). 그래서 투명(opacity 0)으로 띄워 렌더러가
   // 빈 화면을 그렸다는 신호(panel:painted)를 받은 뒤에 나타낸다. 신호가 없어도 REVEAL_MS 뒤에는 보인다 — 굳은 창을 숨겨 두지 않는다
   const REVEAL_MS = 150;
+  const LEAVE_MS = 80; // 렌더러의 나가기 전환(70ms)보다 조금 길게 — 마지막 프레임까지 보인 뒤 숨긴다(D-31)
   let revealTimer = null;
+  let hideTimer = null; // 사라지는 중 — 이 동안의 hide·toggle은 무시, show는 취소하고 다시 뜬다
   let showSeq = 0;
 
   function reveal() {
@@ -97,6 +99,7 @@ export function createPanel(ctx) {
     if (ctx.quitting) return;
     log('panel.show', state());
     const my = ++showSeq;
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } // 사라지던 중에 다시 부르면 그 자리에서 다시 뜬다
     place();
     win.setOpacity(0); // 나타나는 순간까지 아무것도 안 보인다 — 직전 프레임도, 크기 변화도
     platform.activate(win); // restore/show/focus — 순서와 조합은 OS가 다르다(실측 #7·D-29)
@@ -109,20 +112,31 @@ export function createPanel(ctx) {
 
   // 렌더러가 빈 입력줄을 그렸다(두 rAF 뒤) — 이제 보여도 된다
   function painted() {
-    if (!win.isVisible() || win.getOpacity() > 0) return;
+    if (!win.isVisible() || win.getOpacity() > 0 || hideTimer) return;
     reveal();
   }
 
+  // 숨기기(D-31) — 렌더러에 leave를 보내 70ms 페이드 아웃하고 LEAVE_MS 뒤에 실제로 숨긴다. 렌더러가 굳어 있어도 타이머로 숨긴다.
+  // 아직 나타나지 않은 창(opacity 0)·스모크·종료 중에는 바로 숨긴다
   function hide(why) {
-    if (!win.isVisible()) return;
+    if (!win.isVisible() || hideTimer) return;
     log(`panel.hide(${why})`, state());
     clearTimeout(revealTimer);
     revealTimer = null;
-    platform.deactivate(win);
-    win.webContents.send('panel:hidden', why);
+    showSeq += 1; // 진행 중이던 reveal 무효화
+    const finish = () => {
+      hideTimer = null;
+      if (win.isDestroyed() || !win.isVisible()) return;
+      platform.deactivate(win);
+      win.webContents.send('panel:hidden', why);
+    };
+    if (ctx.quitting || ctx.smoke || win.getOpacity() === 0) return finish();
+    win.webContents.send('panel:leave');
+    hideTimer = setTimeout(finish, LEAVE_MS);
   }
 
   function toggle() {
+    if (hideTimer) return; // 사라지는 중 — 80ms 안의 두 번째 누름은 버린다
     if (win.isVisible()) hide('hotkey');
     else show();
   }

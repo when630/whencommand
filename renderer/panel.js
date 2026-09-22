@@ -229,11 +229,18 @@ $list.addEventListener('click', (e) => {
 
 // 다시 부르면 **항상 빈 줄**로 시작한다(PANEL-07). 출력 모드도 여기서 끝난다 — 다음 부름은 늘 입력줄이다
 window.whencommand.onShown(() => {
+  $panel.classList.remove('leave');
+  $panel.classList.add('enter'); // 시작 자세(투명·살짝 위) — 창이 나타나는 첫 프레임이 이것이다(D-31)
   leaveOutput(); $q.value = ''; $q.focus(); query();
-  // 빈 입력줄이 실제로 그려진 뒤(두 rAF — 첫 rAF는 그리기 전, 둘째는 합성 뒤) 메인에 알린다. 그때까지 창은 투명하다(D-30)
-  requestAnimationFrame(() => requestAnimationFrame(() => window.whencommand.painted()));
+  // 빈 입력줄이 실제로 그려진 뒤(두 rAF — 첫 rAF는 그리기 전, 둘째는 합성 뒤) 메인에 알린다. 그때까지 창은 투명하다(D-30).
+  // 알린 다음 프레임에 .enter를 떼면 90ms 전환이 시작된다 — 메인이 창을 보이는 것과 거의 동시
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    window.whencommand.painted();
+    requestAnimationFrame(() => $panel.classList.remove('enter'));
+  }));
 });
-window.whencommand.onHidden(() => { leaveOutput(); $q.value = ''; query(); }); // 목록까지 비운다 — 다음에 뜰 첫 프레임에 옛 결과가 남지 않게(D-27)
+window.whencommand.onLeave(() => $panel.classList.add('leave')); // 메인이 LEAVE_MS 뒤에 숨긴다 — 그동안 페이드 아웃(D-31)
+window.whencommand.onHidden(() => { $panel.classList.remove('leave'); $panel.classList.add('enter'); leaveOutput(); $q.value = ''; query(); }); // 목록까지 비운다 — 다음에 뜰 첫 프레임에 옛 결과가 남지 않게(D-27)
 window.whencommand.onOutput((payload) => { out = payload; renderOutput(); });
 window.whencommand.onMore(more);
 

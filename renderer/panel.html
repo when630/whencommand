@@ -14,7 +14,12 @@ body { padding: 28px; user-select: none; }             /* 28px = main/panel.mjs 
   border-radius: var(--r-lg); overflow: hidden; display: flex; flex-direction: column;
   /* 시안 ㉤의 0 18px 56px는 데스크톱 위에서 28px 여백에 잘리며 넓고 둔했다 — 형제 앱 공통 토큰(D-27) */
   box-shadow: var(--shadow-pop), inset 0 1px 0 rgba(255,255,255,.06);
+  /* 모션(D-31) — 들어올 때 90ms 위에서 살짝 내려오며 페이드 인, 나갈 때 70ms 페이드 아웃. 창은 렌더러가 .enter 상태를 그린 뒤 나타난다(D-30) */
+  transition: opacity 90ms cubic-bezier(.2,.8,.2,1), transform 90ms cubic-bezier(.2,.8,.2,1);
+  will-change: opacity, transform;
 }
+.panel.enter { opacity: 0; transform: translateY(-6px) scale(.985); transition: none; }
+.panel.leave { opacity: 0; transform: translateY(-4px) scale(.99); transition-duration: 70ms; transition-timing-function: ease-in; }
 /* 입력 행을 잡고 끈다(D-19). 입력창 자체는 글자를 골라야 하니 뺀다 */
 .q { display: flex; align-items: center; gap: 11px; padding: 0 16px; height: 54px; flex: none; -webkit-app-region: drag; }
 .q input { -webkit-app-region: no-drag; }
