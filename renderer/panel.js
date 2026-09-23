@@ -114,12 +114,15 @@ async function query() {
   const q = $q.value;
   lastQueried = q;
   $hint.textContent = '';
+  const t0 = performance.now(); // 계측 — 키 입력에서 목록이 그려지기까지(IPC 왕복 + render)
   const result = await window.whencommand.query(q, my);
   if (my !== seq) return; // 더 새 입력이 있었다
+  const tIpc = performance.now() - t0;
   items = result.items;
   sel = 0;
   pendingMove = 0;
   lastResult = result;
+  if (q.trim()) requestAnimationFrame(() => window.whencommand.perf(`keystroke→painted ${JSON.stringify(q)} (ipc ${Math.round(tIpc)}ms)`, performance.now() - t0));
   render(result);
 }
 
@@ -281,11 +284,12 @@ window.whencommand.onShown(() => {
   $panel.classList.remove('leave');
   $panel.classList.add('enter'); // 시작 자세(투명·살짝 위) — 창이 나타나는 첫 프레임이 이것이다(D-31)
   act = null;
+  const tShown = performance.now(); // 계측 — shown 수신에서 painted 송신까지(두 rAF가 실제로 몇 ms인가)
   leaveOutput(); $q.value = ''; $q.focus(); query();
   // 빈 입력줄이 실제로 그려진 뒤(두 rAF — 첫 rAF는 그리기 전, 둘째는 합성 뒤) 메인에 알린다. 그때까지 창은 투명하다(D-30).
   // 알린 다음 프레임에 .enter를 떼면 90ms 전환이 시작된다 — 메인이 창을 보이는 것과 거의 동시
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    window.whencommand.painted();
+    window.whencommand.painted(performance.now() - tShown);
     requestAnimationFrame(() => $panel.classList.remove('enter'));
   }));
 });

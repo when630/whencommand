@@ -11,6 +11,7 @@ import builtin from './builtin.mjs';
 import system from './system.mjs';
 import { actionsFor, altAction } from '../actions.mjs';
 import { classifyClipboard, brief } from '../clip.mjs';
+import { log } from '../log.mjs';
 import fs from 'node:fs';
 
 const MAX_ROWS = 8; // PANEL-08
@@ -44,6 +45,7 @@ export function createSources(ctx) {
       return { apps: await apps.refresh(), scripts: scripts.refresh(), siblings: siblings.refresh() };
     },
     appCount: () => apps.count(),
+    appPaths: () => apps.paths(),
     scripts,
     files,
     siblings,
@@ -68,10 +70,12 @@ export function createSources(ctx) {
       // 커서까지의 행은 고정하고 그 아래만 순위로 섞는다(D-11·D-21). 여기서 전체를 다시 매기면 방향키를 누른 직후 커서가 튄다
       const pending = wantFiles && files.status().ok; // 렌더러는 이게 참이면 "찾은 것이 없습니다"를 늦은 답이 올 때까지 미룬다
       if (pending) {
+        const t0 = performance.now(); // 계측 — 질의에서 파일 합류(query:more)까지. 디바운스 120ms가 들어 있다
         files.late(q).then((more) => {
           if (!more || seq !== lastSeq || ctx.quitting) return; // null = 더 새 질의에 밀렸다
           const ranked = rank(more, ctx.store.picks()).slice(0, MAX_ROWS).map(withActions);
           last = new Map([...last, ...ranked.map((it) => [it.key, it])]); // 앞서 보낸 것에 더한다 — 렌더러가 무엇을 남기든 찾을 수 있게
+          log(`perf.more ${JSON.stringify(q)} ${Math.round(performance.now() - t0)}ms → 파일 ${ranked.length}개`);
           ctx.panel?.win.webContents.send('query:more', { seq, items: ranked }); // 0개여도 보낸다 — 그래야 빈 안내를 낼 수 있다
         });
       }

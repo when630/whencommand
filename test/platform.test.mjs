@@ -32,6 +32,7 @@ const CONTRACT = [
   'createFileSearch',
   'expandPath',
   'resolveIconPath',
+  'iconSource',
   'extractIcons',
   'setLoginItem',
   'getLoginItem',

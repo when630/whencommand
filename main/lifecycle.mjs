@@ -100,11 +100,22 @@ export function bootstrap() {
     };
 
     await ctx.sources.ready(); // 앱 목록 — 실측 ~100ms(8 병렬). 단축키는 이미 살아 있다
-    // 형제 앱 아이콘만 미리 받아 둔다(D-26 보충). 다섯 개뿐인데 셸이 기본 아이콘을 주면 PowerShell 폴백이 콜드 ~800ms라,
-    // 첫 질의에서 글자 상자만 보이다 바뀐다. 시작 직후 한 박자 뒤, 그리고 매니페스트가 바뀔 때마다. 앱 목록 전체는 여전히 보이는 줄만(D-23)
-    ctx.warmSiblingIcons = () => setTimeout(() => ctx.icons.get(ctx.sources.siblings.apps().map((m) => m.path).filter(Boolean)).catch(() => {}), 1500);
-    ctx.sources.siblings.onChange(() => ctx.warmSiblingIcons());
-    ctx.warmSiblingIcons();
+    // 아이콘 선워밍(D-38) — 형제 앱 다섯(D-26 보충)에 더해 **앱 목록 전체**를 시작 직후 한 박자 뒤 백그라운드로 미리 받는다.
+    // 실측 #11: 셸 캐시에 없는 exe는 콜드 226~751ms/개라 첫 검색에서 글자 상자가 늦게 아이콘으로 바뀌었다. 형제 앱을 앞에 두어 먼저 받는다.
+    // 목록 새로고침·매니페스트 변경 뒤에도 다시 — 이미 받은 것은 비용이 없다. 결과는 로그 한 줄(실측용)
+    let warmTimer = null;
+    ctx.warmIcons = () => {
+      clearTimeout(warmTimer);
+      warmTimer = setTimeout(async () => {
+        try {
+          const paths = [...ctx.sources.siblings.apps().map((m) => m.path).filter(Boolean), ...ctx.sources.appPaths()];
+          const r = await ctx.icons.warm(paths);
+          if (r.total) log(`icons.warm ${r.total}개 중 ${r.got}개 ${r.ms}ms (폴백으로 다시 뽑은 것 ${r.fixed}개${r.missing.length ? ` · 못 뽑은 것 ${r.missing.join(', ')}` : ''})`);
+        } catch (e) { log('icons.warm 실패', e); }
+      }, 1500);
+    };
+    ctx.sources.siblings.onChange(() => ctx.warmIcons());
+    ctx.warmIcons();
     setupUpdater(ctx); // 릴리스 확인 — 60초 뒤 첫 확인, 이후 하루 한 번(main/update.mjs). 개발 실행은 unsupported
     if (process.argv.includes('--check-update')) {
       // 설치본에서 업데이트 경로가 실제로 도는지 보는 모드(REL-02). 결과를 찍고 끝낸다
@@ -308,7 +319,7 @@ function makeTray(ctx) {
         label: '목록 새로고침',
         click: async () => {
           const n = await ctx.sources.refresh();
-          ctx.warmSiblingIcons?.();
+          ctx.warmIcons?.();
           tray.setToolTip(`WHENCOMMAND — 앱 ${n.apps}개 · 스크립트 ${n.scripts}개`);
         },
       },

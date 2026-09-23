@@ -223,7 +223,12 @@ export default {
     return p;
   },
 
-  // macOS는 getFileIcon이 .app 번들의 아이콘을 직접 읽어 기본 그림으로 떨어지지 않는다 — 폴백이 없다(win32의 exe 리소스 추출에 대응)
+  // 아이콘 출처(D-39) — macOS에는 바로가기의 IconLocation 같은 간접이 없다. 경로 그대로, 인덱스 0
+  iconSource(p) {
+    return { file: p, index: 0 };
+  },
+
+  // macOS는 getFileIcon이 .app 번들의 아이콘을 직접 읽어 기본 그림으로 떨어지지 않는다 — 폴백이 없다(win32의 exe·dll 리소스 추출에 대응)
   extractIcons() {
     return Promise.resolve({});
   },

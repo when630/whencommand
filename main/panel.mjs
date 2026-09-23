@@ -86,36 +86,55 @@ export function createPanel(ctx) {
   let revealTimer = null;
   let hideTimer = null; // 사라지는 중 — 이 동안의 hide·toggle은 무시, show는 취소하고 다시 뜬다
   let showSeq = 0;
+  // 계측(2026-09-23) — "Raycast보다 무겁다"가 어느 단계인지 로그로 가른다. 동작에는 관여하지 않는다.
+  // show()의 단계별 소요를 모아 두고 reveal에서 한 줄로 찍는다: 단축키→보임 전체, 그중 restore/show(activate)·setSize·클립보드 읽기·렌더러 첫 페인트
+  const now = () => performance.now();
+  const ms = (t) => `${Math.round(t)}ms`;
+  let showT = null; // { t0, activate, size, clip }
+  let hideT0 = 0;
 
-  function reveal() {
+  function reveal(why, rendererMs) {
     clearTimeout(revealTimer);
     revealTimer = null;
     if (win.isDestroyed() || !win.isVisible()) return;
+    const tOp = now();
     win.setOpacity(1);
     win.focus();
+    if (showT) {
+      log(`panel.reveal(${why}) 전체 ${ms(now() - showT.t0)} — activate ${ms(showT.activate)} · setSize ${ms(showT.size)} · clipboard ${ms(showT.clip)} · shown→painted(main) ${ms(tOp - showT.shown)}${rendererMs != null ? ` · 렌더러 shown→painted ${ms(rendererMs)}` : ''} · setOpacity+focus ${ms(now() - tOp)}`);
+      showT = null;
+    }
   }
 
   function show() {
     if (ctx.quitting) return;
     log('panel.show', state());
+    const t0 = now();
     const my = ++showSeq;
     if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } // 사라지던 중에 다시 부르면 그 자리에서 다시 뜬다
     place();
     win.setOpacity(0); // 나타나는 순간까지 아무것도 안 보인다 — 직전 프레임도, 크기 변화도
+    let t = now();
     platform.activate(win); // restore/show/focus — 순서와 조합은 OS가 다르다(실측 #7·D-29)
+    const tActivate = now() - t;
     // 최소화된 창의 setSize는 먹지 않으므로 restore 뒤에 맞춘다. 열릴 때 내용은 항상 빈 입력줄(panel:hidden·shown에서 비운다)
+    t = now();
     if (win.getSize()[1] !== WIN_H_MIN) win.setSize(WIN_W, WIN_H_MIN, false);
+    const tSize = now() - t;
     // 클립보드 즉시 동작(D-37) — 뜨는 순간 한 번 읽는다. 감시하지 않고 저장하지 않는다. 설정에서 끌 수 있다
+    t = now();
     try { ctx.sources.setClipboard(ctx.settings.get('clipboardRow', true) && !ctx.smoke ? clipboard.readText() : ''); } catch { ctx.sources.setClipboard(''); }
+    const tClip = now() - t;
     win.webContents.send('panel:shown');
+    showT = { t0, activate: tActivate, size: tSize, clip: tClip, shown: now() };
     clearTimeout(revealTimer);
-    revealTimer = setTimeout(() => { if (my === showSeq) { log('panel.reveal(timeout)'); reveal(); } }, REVEAL_MS);
+    revealTimer = setTimeout(() => { if (my === showSeq) reveal('timeout'); }, REVEAL_MS);
   }
 
-  // 렌더러가 빈 입력줄을 그렸다(두 rAF 뒤) — 이제 보여도 된다
-  function painted() {
+  // 렌더러가 빈 입력줄을 그렸다(두 rAF 뒤) — 이제 보여도 된다. rendererMs는 렌더러가 잰 shown→painted(계측)
+  function painted(rendererMs) {
     if (!win.isVisible() || win.getOpacity() > 0 || hideTimer) return;
-    reveal();
+    reveal('painted', rendererMs);
   }
 
   // 숨기기(D-31) — 렌더러에 leave를 보내 70ms 페이드 아웃하고 LEAVE_MS 뒤에 실제로 숨긴다. 렌더러가 굳어 있어도 타이머로 숨긴다.
@@ -123,13 +142,16 @@ export function createPanel(ctx) {
   function hide(why) {
     if (!win.isVisible() || hideTimer) return;
     log(`panel.hide(${why})`, state());
+    hideT0 = now();
     clearTimeout(revealTimer);
     revealTimer = null;
     showSeq += 1; // 진행 중이던 reveal 무효화
     const finish = () => {
       hideTimer = null;
       if (win.isDestroyed() || !win.isVisible()) return;
+      const t = now();
       platform.deactivate(win);
+      log(`panel.hidden(${why}) 전체 ${ms(now() - hideT0)} — deactivate(minimize+hide) ${ms(now() - t)}`); // 계측 — hide 호출에서 실제로 사라지기까지
       win.webContents.send('panel:hidden', why);
     };
     if (ctx.quitting || ctx.smoke || win.getOpacity() === 0) return finish();
@@ -168,7 +190,10 @@ export function createPanel(ctx) {
     const h = Math.max(WIN_H_MIN, Math.min(WIN_H_MAX, Math.round(cardH) + PAD * 2));
     const [w, before] = win.getSize();
     if (before === h) return;
+    const t = now();
     win.setSize(w, h, false);
+    // 계측 — 키 입력마다 창 높이가 바뀌는 비용. 투명 프레임리스 창의 setSize가 얼마나 드는지 한 줄씩 남긴다(보이는 동안만 오므로 양은 타이핑 수만큼)
+    log(`panel.resize ${before}→${h} ${ms(now() - t)}`);
     if (win.getSize()[1] !== h) log(`panel.resize ${before}→${h} 실패 (지금 ${win.getSize()[1]}, min ${win.getMinimumSize()[1]} max ${win.getMaximumSize()[1]})`); // 크기가 안 먹으면 그 사실을 남긴다(오픈이슈 #10)
   }
 

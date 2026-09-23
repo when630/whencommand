@@ -63,8 +63,21 @@ export function registerIpc(ctx) {
     appCount: ctx.sources.appCount(),
   }));
 
-  ipcMain.handle('query:run', (_e, q, seq) => ctx.sources.query(q, seq));
-  ipcMain.handle('icon:get', (_e, paths) => ctx.icons.get(paths)); // 화면에 보이는 줄의 아이콘만(LNCH-04, D-23)
+  // 계측 — 키 입력 한 번의 메인 쪽 비용(빠른 공급원 전부 + 랭킹). 빈 입력은 찍지 않는다
+  ipcMain.handle('query:run', async (_e, q, seq) => {
+    const t = performance.now();
+    const r = await ctx.sources.query(q, seq);
+    if (String(q ?? '').trim()) log(`perf.query ${JSON.stringify(String(q))} ${Math.round(performance.now() - t)}ms → ${r.items.length}개${r.pending ? ' (파일 대기)' : ''}`);
+    return r;
+  });
+  // 화면에 보이는 줄의 아이콘만(LNCH-04, D-23). 계측 — 선워밍(D-38) 뒤에는 0ms여야 한다
+  ipcMain.handle('icon:get', async (_e, paths) => {
+    const t = performance.now();
+    const r = await ctx.icons.get(paths);
+    const ms = Math.round(performance.now() - t);
+    if (ms >= 5) log(`perf.icons ${Object.keys(r).length}개 ${ms}ms`, Object.keys(r).map((p) => p.split(/[\\/]/).pop())); // 캐시 적중이면 찍히지 않는다 — 찍히는 것이 곧 콜드. 어떤 경로였는지 이름만
+    return r;
+  });
 
   // 본 동작(Enter) · 보조 동작(⌘·Ctrl+Enter, actions.mjs altAction — 없으면 본 동작과 같다) · 액션 패널에서 고른 동작(actionId, PANEL-12)
   async function runItem(key, alt = false, actionId = null) {
@@ -186,7 +199,7 @@ export function registerIpc(ctx) {
     try { fs.mkdirSync(APPS_DIR, { recursive: true }); } catch {}
     return !(await shell.openPath(APPS_DIR));
   });
-  ipcMain.handle('settings:refreshLists', async () => { const r = await ctx.sources.refresh(); ctx.warmSiblingIcons?.(); return r; });
+  ipcMain.handle('settings:refreshLists', async () => { const r = await ctx.sources.refresh(); ctx.warmIcons?.(); return r; });
   ipcMain.handle('panel:resetPosition', () => { ctx.panel?.resetPosition(); return true; });
   ipcMain.handle('store:reset', () => { try { ctx.store.reset(); return { ok: true }; } catch { return { ok: false }; } }); // STOR-03
 
@@ -237,7 +250,8 @@ export function registerIpc(ctx) {
     }
   });
   ipcMain.on('settings:resize', (_e, h) => ctx.settingsWin?.resize(Number(h) || 0));
-  ipcMain.on('panel:painted', () => ctx.panel?.painted()); // 빈 입력줄을 그렸다 — 투명했던 창을 보인다(D-30)
+  ipcMain.on('panel:painted', (_e, ms) => ctx.panel?.painted(typeof ms === 'number' ? ms : undefined)); // 빈 입력줄을 그렸다 — 투명했던 창을 보인다(D-30)
+  ipcMain.on('panel:perf', (_e, label, ms) => log(`perf.renderer ${String(label)} ${Math.round(Number(ms) || 0)}ms`)); // 계측 — 렌더러가 잰 구간
   ipcMain.on('settings:close', () => ctx.settingsWin?.hide());
 
   ipcMain.on('win:hide', () => ctx.panel.hide('esc'));

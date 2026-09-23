@@ -42,6 +42,7 @@ export default {
     return cache.length;
   },
   count: () => cache.length,
+  paths: () => cache.map((a) => a.path), // 아이콘 선워밍(D-38)이 시작 직후 전체를 미리 받는 데 쓴다
   async query(q) {
     const out = [];
     for (const a of cache) {

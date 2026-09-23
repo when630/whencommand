@@ -233,44 +233,65 @@ export default {
   // 아이콘을 뽑을 경로(LNCH-04). 시작 메뉴 항목은 .lnk라 그대로 물으면 "바로가기" 그림이 온다 — 대상을 풀어 그쪽 아이콘을 받는다.
   // 못 풀면(깨진 바로가기) 원래 경로 — 그러면 바로가기 그림이라도 뜬다
   resolveIconPath(p) {
-    if (!/\.lnk$/i.test(p)) return p;
-    try {
-      const { target } = shell.readShortcutLink(p);
-      return target && fs.existsSync(target) ? target : p;
-    } catch {
-      return p;
-    }
+    return this.iconSource(p).file;
   },
 
-  // app.getFileIcon이 **기본 실행 파일 아이콘**을 돌려준 exe의 진짜 아이콘(D-26 보충, 실측 2026-09-21).
-  // 셸 아이콘 캐시에 없는 exe(탐색기가 한 번도 안 보여 준 설치본 — 형제 앱 다섯이 그랬다)는 셸이 파일을 열어 보지 않고
-  // 종류별 기본 그림을 준다. .NET ExtractAssociatedIcon은 exe 리소스를 직접 읽어 32px를 준다. PowerShell 한 번에 여러 경로 —
-  // 프로세스 시작이 ~400ms라 경로마다 띄우지 않는다. 결과는 { path: dataUrl } (실패한 경로는 빠진다). 실패가 앱을 멈추지 않는다
-  extractIcons(paths) {
-    const list = paths.filter((p) => /\.exe$/i.test(p));
+  // 아이콘의 **출처**(D-39, 실측 2026-09-23) — { file, index }. 바로가기는 대상 exe가 아니라 자기 IconLocation을 따른다:
+  // Git 셋은 `git-for-windows.ico`, Chrome 앱(GitHub·VIA)은 프로필 폴더의 `.ico`, Office 비교 도구는 대상이 런처 `AppVLP.exe`고 아이콘은 다른 exe,
+  // 작업 관리자는 `Taskmgr.exe,-30651`(음수 = 리소스 ID), iSCSI는 `iscsicpl.dll,-1`. 대상 exe만 보면 이들 전부가 Windows 기본 앱 아이콘이 된다.
+  // IconLocation이 비었거나(`,0`) 없는 파일이면 대상 exe, 그것도 없으면 .lnk 자신. %windir% 같은 변수는 expandPath가 푼다
+  iconSource(p) {
+    if (!/\.lnk$/i.test(p)) return { file: p, index: 0 };
+    try {
+      const { target, icon, iconIndex } = shell.readShortcutLink(p);
+      const iconFile = icon ? this.expandPath(icon) : '';
+      if (iconFile && fs.existsSync(iconFile)) return { file: iconFile, index: Number(iconIndex) || 0 };
+      if (target && fs.existsSync(target)) return { file: target, index: 0 };
+    } catch {}
+    return { file: p, index: 0 };
+  },
+
+  // app.getFileIcon이 **기본 실행 파일 아이콘**을 돌려준 exe의 진짜 아이콘(D-26 보충, 실측 2026-09-21), 그리고 인덱스가 있는 exe/dll 리소스(D-39).
+  // 셸 아이콘 캐시에 없는 exe(탐색기가 한 번도 안 보여 준 설치본 — 형제 앱 다섯이 그랬다)는 셸이 파일을 열어 보지 않고 종류별 기본 그림을 준다.
+  // Win32 ExtractIconEx가 파일·인덱스(음수면 리소스 ID)로 32px를 뽑고, 0번이 없으면 .NET ExtractAssociatedIcon으로 한 번 더.
+  // PowerShell 한 번에 여러 항목 — 프로세스 시작이 ~400ms라 항목마다 띄우지 않는다. items는 [{ file, index }], 결과는 { `${file}\t${index}`: dataUrl }
+  // (실패한 항목은 빠진다). 실패가 앱을 멈추지 않는다
+  extractIcons(items) {
+    const list = items.map((it) => (typeof it === 'string' ? { file: it, index: 0 } : it)).filter((it) => it?.file && /\.(exe|dll)$/i.test(it.file));
     if (!list.length) return Promise.resolve({});
     const script = [
       'Add-Type -AssemblyName System.Drawing',
+      "Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class WCIco { [DllImport(\"shell32.dll\", CharSet=CharSet.Unicode)] public static extern uint ExtractIconEx(string f, int i, IntPtr[] l, IntPtr[] s, uint n); [DllImport(\"user32.dll\")] public static extern bool DestroyIcon(IntPtr h); }'",
       '[Console]::OutputEncoding = [Text.Encoding]::UTF8',
-      "foreach ($p in $env:WC_ICON_PATHS.Split('|')) {", // 문자열 Split — 정규식 -split은 이스케이프가 JS·PS 두 겹이라 깨지기 쉽다
+      "foreach ($item in $env:WC_ICON_ITEMS.Split('|')) {", // 문자열 Split — 정규식 -split은 이스케이프가 JS·PS 두 겹이라 깨지기 쉽다
       '  try {',
-      '    $i = [System.Drawing.Icon]::ExtractAssociatedIcon($p)',
-      '    $ms = New-Object IO.MemoryStream',
-      '    $i.ToBitmap().Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)',
-      '    Write-Output ($p + "`t" + [Convert]::ToBase64String($ms.ToArray()))',
+      '    $parts = $item.Split("`t"); $f = $parts[0]; $oi = [int]$parts[1]',
+      // 셸 규약의 -1은 "리소스 ID 1"인데 ExtractIconEx의 -1은 "개수 반환" 특수값과 겹쳐 실패한다(실측 2026-09-23 — 접근성 도구 다섯이 전부 `,-1`).
+      // 리소스 ID 1은 거의 항상 파일의 첫 아이콘이라 위치 0으로 뽑는다
+      '    $idx = if ($oi -eq -1) { 0 } else { $oi }',
+      '    $icon = $null; $l = New-Object IntPtr[] 1; $s = New-Object IntPtr[] 1',
+      '    $n = [WCIco]::ExtractIconEx($f, $idx, $l, $s, 1)',
+      '    if ($n -gt 0 -and $l[0] -ne [IntPtr]::Zero) { $icon = [System.Drawing.Icon]::FromHandle($l[0]) }',
+      '    elseif ($idx -eq 0) { $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($f) }',
+      '    if ($icon) {',
+      '      $ms = New-Object IO.MemoryStream',
+      '      $icon.ToBitmap().Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)',
+      '      Write-Output ($f + "`t" + $oi + "`t" + [Convert]::ToBase64String($ms.ToArray()))',
+      '    }',
+      '    if ($l[0] -ne [IntPtr]::Zero) { [void][WCIco]::DestroyIcon($l[0]) }',
       '  } catch {}',
       '}',
     ].join('\n');
     const encoded = Buffer.from(script, 'utf16le').toString('base64'); // -EncodedCommand — 따옴표·cp949 문제를 피한다
     return new Promise((resolve) => {
       execFile('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
-        { encoding: 'utf8', timeout: 8000, maxBuffer: 16 * 1024 * 1024, windowsHide: true, env: { ...process.env, WC_ICON_PATHS: list.join('|') } },
+        { encoding: 'utf8', timeout: 10000, maxBuffer: 16 * 1024 * 1024, windowsHide: true, env: { ...process.env, WC_ICON_ITEMS: list.map((it) => `${it.file}\t${it.index | 0}`).join('|') } },
         (err, stdout) => {
           const out = {};
           if (!err) {
             for (const line of String(stdout).split(/\r?\n/)) {
-              const i = line.indexOf('\t');
-              if (i > 0 && line.length > i + 1) out[line.slice(0, i)] = `data:image/png;base64,${line.slice(i + 1).trim()}`;
+              const parts = line.split('\t');
+              if (parts.length === 3 && parts[2].trim()) out[`${parts[0]}\t${Number(parts[1]) || 0}`] = `data:image/png;base64,${parts[2].trim()}`;
             }
           }
           resolve(out);
