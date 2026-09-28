@@ -18,24 +18,11 @@
 
 ## 현재 단계
 
-**v0.1.10 공개(2026-09-23)** — `github.com/when630/whencommand/releases`. 2026-09-21에 v0.1.0(첫 릴리스)·v0.1.1(아이콘·한글 별칭)·v0.1.2(설정 창 사용법·스크롤, D-25)·v0.1.3(형제 앱 실제 아이콘, D-26)·v0.1.4(그림자·두 번 깜빡임, D-27 — **굳음 회귀**), 이튿날 v0.1.5(GPU·렌더러 복구·상태 로그, D-28)·v0.1.6(굳음 수정, D-29)·v0.1.7(깔끔한 등장·창 높이, D-30)·v0.1.8(모션 D-31, 폴백·시스템 명령·액션 패널 D-32~34)·v0.1.9(의도 라우팅·지름길 힌트·클립보드 D-35~37, IME Ctrl+K 수정), 2026-09-23 v0.1.10(반응성 실측 #11·계측 로그, 아이콘 선워밍 D-38, 바로가기 IconLocation D-39). **0.1.4·0.1.5는 한 번 쓰면 굳는다 — 쓰지 말 것.** Windows NSIS + macOS dmg/zip(arm64·x64), CI 세 OS. macOS는 실기기 검증 전.
+**v0.1.10 공개(2026-09-23)** — `github.com/when630/whencommand/releases`. 버전별 내용은 git 태그·`docs/03 §10`(D-23~D-39)·§11. **0.1.4·0.1.5는 한 번 쓰면 굳는다 — 쓰지 말 것.** Windows NSIS + macOS dmg/zip(arm64·x64), CI 세 OS. macOS는 실기기 검증 전.
 
 **Phase 3 — 앱·스크립트·파일·계산이 한 목록에 온다.** `⌘Space` → 입력줄 → 앱·스크립트를 초성·퍼지·자판 교정으로 찾고, 3글자부터 파일이 늦게 합류해(D-11·D-21) `Enter`로 실행. 스크립트 출력은 길이로 갈려 토스트 또는 패널 출력 모드(D-17). `npm run smoke`가 사람 손 없이 끝까지 돌고 렌더링을 PNG로 찍는다 — `SMOKE_RUN=<스크립트>`면 실제로 실행해 출력 분기까지 찍는다.
 
-끝난 것: Phase 0 실측(10개 중 9개 답 — macOS 2026-09-19, Windows 2026-09-21, `docs/03 §11`), 시안 ㉤ 확정(D-15), 아이콘, 양 OS `smoke` 통과, Windows 실사용 첫날의 다듬기(D-18·D-19, 하단 바 제거), EXT(D-20), FILE(D-21 — Windows Search 실기기, mdfind 쪽은 미검증), LINK 양쪽(D-22 — `manifest.mjs`·`sources/siblings.mjs`; WHENNOTE에 스킴·매니페스트 붙여 Windows 실기기 검증; 규약 레포 `github.com/when630/when-protocol`), 설정 창(D-16 보충 — `settings-win.mjs`, 내장 명령 `설정`), `update.mjs`(whenwork 복사 — 트레이·설정 창에 업데이트 줄, `--check-update` 모드).
-v0.1.0 공개 뒤: 앱·파일 아이콘(D-23, LNCH-04), WHENNOTE 0.1.1 공개(딥링크 들어간 설치본).
-실측 #2 Windows 확정(`--probe-login`). 형제 앱 다섯 전부 스킴 부착 — WHENNOTE 0.1.1 · WHENWORK 0.2.1 · WHENCALENDAR 0.1.3 · WHENMUSIC(옆 세션, `d9b28f5`) · WHENMAIL 0.8.1. 각 앱의 `add`류 결은 when-protocol README "붙인 앱" 절.
-한글 별칭(D-24, 오픈이슈 #7 해소 — `aliases.mjs` + `~/.whencommand/aliases.json`).
-설정 창 다듬기(D-25) — 형제 앱 줄의 "N개 명령 · 사용법 ›" 캡션을 누르면 명령별 입력 예시가 접혀서 펼쳐진다(`manifest.mjs usageOf`). 창 높이는 작업영역을 넘지 않고 본문이 스크롤된다(860에서 '정보'가 잘리던 것). `SMOKE_SETTINGS=open`. 형제 앱 명령에 설치본의 실제 아이콘(D-26 — 매니페스트 verify 경로를 `path`로 실어 D-23 캐시가 받는다).
-복구(D-28) — GPU·렌더러 사망 시 reload, GPU 두 번이면 `settings.disableGpu` + relaunch, `panel.show/hide` 상태 로그.
-"한 번 쓰면 굳는다" 원인 확정·수정(D-29, 오픈이슈 #9 해소) — 0.1.4 회귀: Windows `restore()` 뒤 `show()`를 빼서 렌더러가 프레임을 안 냈다. 재현·검증은 합성 키 + 화면 캡처(스크래치 `repro.ps1`).
-깔끔한 등장(D-30) — 투명으로 띄우고 렌더러가 빈 입력줄을 그린 신호(`panel:painted`) 뒤에 보인다. 직전 검색 화면이 한 프레임 보이던 것·크기 깜빡임. 오픈이슈 #10(`resizable:false`가 setSize를 막던 것) 해소.
-모션(D-31) — 들어올 때 90ms(`.panel.enter`), 나갈 때 70ms(`.panel.leave`, 메인은 80ms 타이머 뒤 숨김 — 렌더러 응답에 기대지 않는다).
-클립보드 즉시 동작(D-37, PANEL-13) — 뜨는 순간 한 번 읽어 링크 열기·경로 열기·의도 명령·퀵 메모를 빈 입력에 몇 줄. 감시·저장 없음, 설정에서 끔. `SMOKE_CLIP=<글>`.
-반응성 실측(실측 #11, 2026-09-23) — `panel.reveal`·`perf.query`·`perf.renderer`·`perf.more`·`perf.icons`·`panel.hidden`·`panel.resize` 계측 로그. 단축키→보임 34~53ms, 키 입력→그림 2~20ms, 파일 합류 148~218ms, Esc→숨김 88~107ms. **코드 경로는 빠르고 체감은 모션(등장 90+퇴장 80, 유지 결정)·파일 두 번째 재배치·세션 첫 아이콘 지연**에서 온다. 아이콘 선워밍(D-38 — `icons.warm`, 시작 1.5초 뒤 앱 전체 청크 16, 폴백 PowerShell 한 번; 144개 중 107개 4.7s 백그라운드). 바로가기 IconLocation 존중(D-39 — `.lnk` 105개 중 24개가 대상 exe와 아이콘 위치가 달라 Windows 기본 앱 아이콘이 뜨던 것. `platform.iconSource`·`.ico` 직접 읽기·`ExtractIconEx` 인덱스·폴백 실패는 null; UWP 제외 107개 전부 실제 아이콘).
-지름길 힌트(D-36, SRCH-11) — 고르면 `hint.mjs` 후보를 `sources.probe`로 재서 "다음엔 ‹ㅋㄹ›" 토스트 한 번.
-의도 라우팅(D-35, SRCH-10) — `main/intent.mjs` 규칙표. "담주 화 3시 김부장 미팅"→일정 추가가 명령 이름 없이 첫 줄에. 매니페스트 `commands[].intents`(when-protocol)가 선언하면 그것이 우선.
-Raycast에서 가져온 셋(D-32·33·34) — 폴백(결과 0개면 인자 받는 형제 앱 명령·`# fallback: yes` 스크립트에 입력 전체를, SRCH-09) · 시스템 명령 다섯(`sources/system.mjs`, `platform.systemCommands`, EXT-07) · 액션 패널 Ctrl+K(`main/actions.mjs`, PANEL-12).
+끝난 것의 원본은 `docs/03 §10` 결정 기록과 §11 실측 로그다. 여기서 되새길 것만: 체감 지연은 코드 경로가 아니라 모션(등장 90+퇴장 80, 유지 결정)·파일 두 번째 재배치·세션 첫 아이콘에서 온다(실측 #11). FILE의 mdfind 쪽은 미검증. 형제 앱 다섯 전부 스킴 부착 — 각 앱의 `add`류 결은 when-protocol README "붙인 앱" 절.
 남은 것(순서대로): macOS 실기기에서 FILE·LINK·설치본 첫 실행·실측 #2 검증(오픈이슈 #8) → 오픈이슈 #6(단축키 뒤늦게 뺏김 — macOS만) → v0.2.0(라이브 조회 #2는 v2).
 
 ## 밟으면 아픈 함정 (전부 실측으로 확인된 것 — `docs/03 §11`)
