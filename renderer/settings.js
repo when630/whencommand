@@ -177,6 +177,8 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key === 'Escape') window.settings.close();
 });
+// 캡처 중에는 keyup도 막는다 — keydown만 막으면 Alt를 뗄 때의 keyup이 OS로 흘러 Windows가 메뉴바·시스템 메뉴를 연다(2026-09-28)
+document.addEventListener('keyup', (e) => { if (capturing) e.preventDefault(); });
 
 // ── 자동 실행(PLAT-05) — 돌려받은 값으로 토글을 맞춘다
 $('as').addEventListener('click', async () => {

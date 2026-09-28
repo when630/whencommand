@@ -4,6 +4,8 @@
 import { BrowserWindow, screen } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { log } from './log.mjs';
+import { platform } from './platform/index.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const W = 540;
@@ -34,6 +36,11 @@ export function createSettingsWin(ctx) {
       webPreferences: { preload: path.join(HERE, 'preload-settings.cjs'), sandbox: true, contextIsolation: true },
     });
     win.setMenu?.(null);
+    // 오픈이슈 #11(macOS에서 ⌘ 조합이 단축키 잡기에 안 들어온다): ⌘ keydown이 webContents까지 오는지 로그로 가른다 —
+    // 여기 찍히면 렌더러·등록 쪽, 안 찍히면 창 포커스·AppKit 쪽이다. before-input-event는 페이지·메뉴보다 앞이다
+    win.webContents.on('before-input-event', (_e, input) => {
+      if (input.type === 'keyDown' && input.meta) log('settings key', input.code, input.modifiers.join('+'));
+    });
     win.loadFile(path.join(HERE, '..', 'renderer', 'settings.html'));
     win.on('close', (e) => {
       if (ctx.quitting) return;
@@ -53,8 +60,9 @@ export function createSettingsWin(ctx) {
       const [cw, ch] = w.getSize();
       w.setPosition(Math.round(a.x + (a.width - cw) / 2), Math.round(a.y + (a.height - ch) / 2));
     }
-    w.show();
-    w.focus();
+    // macOS: Dock을 숨긴 액세서리 앱은 show()+focus()만으로 키 창이 되지 않는다(실측 #7) — 트레이 클릭 직후라 협력적 활성화가 통한다.
+    // Windows: 최소화됐던 창은 restore→show→focus 순이어야 렌더러가 프레임을 낸다(D-29)
+    platform.activate(w);
     w.webContents.send('settings:refresh'); // 열 때마다 최신 상태로 — 형제 앱이 그새 붙었을 수 있다
   }
 
