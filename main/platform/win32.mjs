@@ -47,8 +47,11 @@ export default {
   // 최소화의 정규 활성화 경로가 직전 포그라운드 창을 복귀시킨다. 최소화된 창은 isVisible()=false라 show() 전에 restore()가 필요하다.
   // 숨길 때 minimize()를 거쳤으니(아래) 보일 때는 restore()가 먼저다. restore()가 창을 보이게 하므로 그 뒤 show()는 안 부른다 —
   // show() 뒤에 restore()를 부르면 두 번 그려져 깜빡였다(2026-09-21 실사용, D-27)
-  activate(win) {
+  // 자리 잡기(`place`)는 restore **뒤**에 — 최소화 중의 `setPosition`은 버려진다(실측 2026-10-07, D-41: 100,100 → setPosition(600,400) → restore 뒤 100,100).
+  // 패널은 opacity 0으로 뜨므로 restore 직후 자리가 바뀌어도 보이지 않는다
+  activate(win, place) {
     if (win.isMinimized()) win.restore();
+    place?.();
     // restore()만으로는 isVisible()이 true가 되지만 웹 콘텐츠는 '숨김'으로 남아 **프레임을 내지 않는다** — 직전 화면이 굳은 채 보이고
     // 키가 안 듣는다(2026-09-22 실기기 재현, D-29). show()는 보이는 창에도 다시 불러야 렌더러가 WasShown을 받는다
     win.show();

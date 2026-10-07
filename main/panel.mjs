@@ -112,10 +112,11 @@ export function createPanel(ctx) {
     const t0 = now();
     const my = ++showSeq;
     if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } // 사라지던 중에 다시 부르면 그 자리에서 다시 뜬다
-    place();
-    win.setOpacity(0); // 나타나는 순간까지 아무것도 안 보인다 — 직전 프레임도, 크기 변화도
+    win.setOpacity(0); // 나타나는 순간까지 아무것도 안 보인다 — 직전 프레임도, 크기 변화도, 자리 이동도
     let t = now();
-    platform.activate(win); // restore/show/focus — 순서와 조합은 OS가 다르다(실측 #7·D-29)
+    // restore/자리/show/focus — 순서와 조합은 OS가 다르다(실측 #7·D-29). 자리는 restore 뒤여야 한다 —
+    // 최소화 중의 setPosition은 버려진다(실측 2026-10-07, D-41): 숨기기 전 자리로 돌아와 커서가 있는 디스플레이를 따라오지 않았다
+    platform.activate(win, place);
     const tActivate = now() - t;
     // 최소화된 창의 setSize는 먹지 않으므로 restore 뒤에 맞춘다. 열릴 때 내용은 항상 빈 입력줄(panel:hidden·shown에서 비운다)
     t = now();

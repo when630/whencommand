@@ -74,7 +74,9 @@ export default {
   // 실측 #7: Dock을 숨긴 액세서리 앱은 win.focus()만으로 앞으로 나오지 않는다.
   // 사용자가 단축키로 부른 직후라면 app.focus({steal:true})가 활성화를 만든다(협력적 활성화 —
   // 프로그램이 스스로 띄우면 안 된다). 숨길 때 app.hide()를 함께 불러야 직전 앱으로 돌아간다.
-  activate(win) {
+  // `place`는 win32와 짝을 맞춘 자리 잡기 콜백(D-41) — macOS는 최소화를 거치지 않으므로 순서가 무관하다
+  activate(win, place) {
+    place?.();
     if (!win.isVisible()) win.show();
     app.focus({ steal: true });
     win.focus();

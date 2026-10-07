@@ -45,7 +45,7 @@ export function createSettingsWin(ctx) {
     win.on('close', (e) => {
       if (ctx.quitting) return;
       e.preventDefault(); // 닫아도 다음에 바로 뜨게 — 창은 하나뿐이라 아까울 것 없다
-      win.hide();
+      platform.deactivate(win); // 직전 창으로 포커스가 돌아가게 — 패널과 같은 길(D-41)
     });
     win.on('closed', () => { win = null; });
     return win;
@@ -54,15 +54,16 @@ export function createSettingsWin(ctx) {
   function show() {
     if (ctx.quitting) return;
     const w = get();
-    if (!w.isVisible()) {
-      // 커서가 있는 디스플레이 가운데 — 설정은 잠깐 보는 창이라 자리를 기억하지 않는다
+    // 커서가 있는 디스플레이 가운데 — 설정은 잠깐 보는 창이라 자리를 기억하지 않는다.
+    // 자리 잡기는 activate 안에서 restore 뒤에 돈다 — 숨길 때 minimize를 거치므로(D-41) 최소화 중의 setPosition은 버려진다
+    const place = w.isVisible() ? null : () => {
       const a = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
       const [cw, ch] = w.getSize();
       w.setPosition(Math.round(a.x + (a.width - cw) / 2), Math.round(a.y + (a.height - ch) / 2));
-    }
+    };
     // macOS: Dock을 숨긴 액세서리 앱은 show()+focus()만으로 키 창이 되지 않는다(실측 #7) — 트레이 클릭 직후라 협력적 활성화가 통한다.
-    // Windows: 최소화됐던 창은 restore→show→focus 순이어야 렌더러가 프레임을 낸다(D-29)
-    platform.activate(w);
+    // Windows: 최소화됐던 창은 restore→자리→show→focus 순이어야 렌더러가 프레임을 낸다(D-29·D-41)
+    platform.activate(w, place);
     w.webContents.send('settings:refresh'); // 열 때마다 최신 상태로 — 형제 앱이 그새 붙었을 수 있다
   }
 
@@ -86,7 +87,8 @@ export function createSettingsWin(ctx) {
 
   return {
     show,
-    hide: () => { if (win && !win.isDestroyed()) win.hide(); },
+    // Esc·× 가 부른다. Windows는 minimize를 거쳐야 직전 창에 포커스가 돌아온다(함정 #8) — 보일 때 restore는 show()의 platform.activate가 맡는다
+    hide: () => { if (win && !win.isDestroyed() && win.isVisible()) platform.deactivate(win); },
     resize,
     get win() { return win; },
     isVisible: () => !!(win && !win.isDestroyed() && win.isVisible()),
