@@ -9,16 +9,18 @@ on:
     branches: [main]
   pull_request:
 
+# 액션은 전부 node24 메이저(2026-10-19 — node20 deprecated 경고). ubuntu는 이름으로 못 박는다 — ubuntu-latest가 2026-10-19~11-19에
+# 24.04→26.04로 몇 주에 걸쳐 바뀌어 그 사이엔 같은 커밋이 실행마다 다른 OS에서 돈다. 다음 LTS 때 여기를 같이 올린다
 jobs:
   test:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-26.04, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm

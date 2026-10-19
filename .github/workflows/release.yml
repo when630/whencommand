@@ -14,12 +14,14 @@ on:
 permissions:
   contents: write
 
+# 액션은 전부 node24 메이저(2026-10-19 — node20 deprecated 경고). ubuntu는 이름으로 못 박는다 — ubuntu-latest가 2026-10-19~11-19에
+# 24.04→26.04로 몇 주에 걸쳐 바뀌어 그 사이엔 같은 커밋이 실행마다 다른 OS에서 돈다. 다음 LTS 때 여기를 같이 올린다
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -45,8 +47,8 @@ jobs:
               dist/latest-mac.yml
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -68,7 +70,7 @@ jobs:
           # 미서명 배포 — 러너 키체인을 뒤지지 않게 못 박는다
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.os }}
           path: ${{ matrix.artifact }}
@@ -77,16 +79,16 @@ jobs:
   publish:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
       # latest.yml / latest-mac.yml이 함께 올라가야 electron-updater가 새 버전을 본다 —
       # 설치 파일만 올리면 앱은 영영 "아직 올라온 릴리스가 없습니다"라고 말한다.
       - name: 올릴 파일 확인
         run: find artifacts -type f | sort
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: artifacts/**/*
           draft: true # 사람이 내용을 보고 공개한다 — 자동으로 공개하지 않는다
