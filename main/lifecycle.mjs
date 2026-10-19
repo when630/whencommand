@@ -193,7 +193,7 @@ async function smoke(ctx) {
   const sib = ctx.sources.siblings;
   console.log(`smoke: 앱 ${n}개 · 스크립트 ${ctx.sources.scripts.count()}개(${SCRIPTS_DIR}) · 형제 앱 ${sib.count()}개(${sib.apps().map((a) => `${a.name} ${a.commands.length}명령`).join(', ') || '없음'}${sib.skipped().length ? ` · 건너뜀 ${sib.skipped().map((s) => `${path.basename(s.file)}: ${s.error}`).join(' / ')}` : ''}) · 단축키 ${ctx.hotkey} ${ctx.hotkeyOk ? 'ok' : 'FAIL'}${ctx.hotkeyConflict ? ` · 충돌 ${ctx.hotkeyConflict.app}` : ''}`);
   if (!n || !ctx.hotkeyOk) bad = true;
-  for (const q of ['', 'ㅋㄹ', 'chrome', '초개ㅡㄷ', 'vsc', '노트', '내 ip', '메모 검색 회의록', '퀵', '1920*0.28', '3.5kg to lb', 'ㅁㄴㅇㄹㅁㄴㅇㄹ']) {
+  for (const q of ['', 'ㅋㄹ', 'chrome', '초개ㅡㄷ', 'vsc', '노트', '내 ip', '메모 검색 회의록', '퀵', '1920*0.28', '3.5kg to lb', 'ㅁㄴㅇㄹㅁㄴㅇㄹ', '계산기', '명령', 'ㅈㅇㄱㄹㅈ', 'task']) { // 뒤 넷: 한글 UWP 이름·desktop.ini 표시 이름(D-42)
     const r = await ctx.sources.query(q);
     const line = r.items.slice(0, 4).map((i) => `${i.app ? `${i.app}:` : ''}${i.title}${i.final != null ? `(${i.final.toFixed(2)}${i.via && i.via !== 'direct' ? ',' + i.via : ''})` : ''}${i.action?.url ? ` → ${i.action.url}` : ''}`).join(' · ');
     console.log(`  ${(q || '(빈 입력)').padEnd(14)} → ${line || '(0개)'}`);
@@ -215,6 +215,13 @@ async function smoke(ctx) {
     await ctx.icons.get(paths);
     const got = Object.values(cold).filter(Boolean).length;
     console.log(`smoke: 아이콘 ${paths.length}개 중 ${got}개 · 콜드 ${coldMs}ms · 웜 ${Date.now() - t0}ms`);
+  }
+  // UWP 로고(D-42) — 셸 아이콘이 없는 shell:AppsFolder 항목을 매니페스트 로고로 몇 개나 받는가
+  {
+    const uwp = ctx.sources.appPaths().filter((p) => /^shell:/i.test(p));
+    const t0 = Date.now();
+    const got = await ctx.icons.warm(uwp);
+    console.log(`smoke: UWP 로고 ${uwp.length}개 중 ${got.got}개 ${Date.now() - t0}ms${got.missing.length ? ` · 못 받은 것 ${got.missing.join(', ')}` : ''}`);
   }
   // 파일 검색(FILE) — 늦은 공급원은 따로 기다려 본다. 색인이 없으면 그 사실이 한 줄로 나와야 한다(FILE-05)
   const fst = ctx.sources.files.status();

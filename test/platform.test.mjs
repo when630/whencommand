@@ -149,3 +149,21 @@ test('시스템 명령은 두 OS가 같은 id 다섯을 낸다 — 종료·재�
   }
 });
 
+
+test('Windows 앱 목록은 셸 표시 이름을 UTF-8로 받는다 (D-42)', () => {
+  const src = read('win32.mjs');
+  const list = src.slice(src.indexOf('async listApps()'), src.indexOf('async openApp('));
+  // 출력 인코딩을 못 박지 않으면 cp949로 나와 계산기·설정 같은 한글 이름이 전부 U+FFFD가 된다(0.1.12까지)
+  assert.match(list, /OutputEncoding = \[Text\.Encoding\]::UTF8/);
+  assert.match(list, /Get-StartApps/);
+  // .lnk 파일 이름(Command Prompt) 대신 desktop.ini가 붙인 이름(명령 프롬프트) — 셸에 묻는다
+  assert.match(list, /Shell\.Application/);
+  assert.match(list, /ParseName\(\$_\.Name\)\.Name/);
+});
+
+test('UWP 로고는 시작 경로가 아니라 아이콘 폴백에서 읽는다 (D-42)', () => {
+  const src = read('win32.mjs');
+  const list = src.slice(src.indexOf('async listApps()'), src.indexOf('async openApp('));
+  assert.ok(!/Get-AppxPackage/.test(list), 'Get-AppxPackage(~800ms)가 앱 목록에 있으면 그만큼 첫 검색이 늦다');
+  assert.match(src, /uwpLogos\(paths\)[\s\S]*?Get-AppxPackage[\s\S]*?Square44x44Logo/);
+});

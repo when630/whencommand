@@ -1,5 +1,5 @@
 // main/icons.mjs — 앱·파일 아이콘(LNCH-04). OS가 그 파일에 붙인 아이콘을 app.getFileIcon으로 받아 data URL로 캐시한다.
-// 렌더러는 **화면에 보이는 줄**만 묻고, 한 번 받은 건 세션 동안 기억한다(D-23). 못 뽑는 것(UWP shell: 경로, 지워진 파일)은 null —
+// 렌더러는 **화면에 보이는 줄**만 묻고, 한 번 받은 건 세션 동안 기억한다(D-23). 못 뽑는 것(지워진 파일, 로고를 못 찾은 UWP)은 null —
 // 렌더러가 첫 글자 상자로 둔다. 실패가 앱을 멈추지 않는다.
 // 선워밍(D-38) — 시작 직후 앱 목록 전체를 백그라운드에서 청크로 미리 받아 둔다. 실측 #11: 셸 캐시에 없는 exe는 콜드 226~751ms/개라
 // 첫 검색에서 글자 상자가 아이콘으로 늦게 바뀌는 것이 체감 "무거움"의 한 축이었다. 캐시 파일은 여전히 두지 않는다(오픈이슈 #4).
@@ -28,7 +28,12 @@ export function createIconCache() {
     if (inflight.has(p)) return inflight.get(p);
     const job = (async () => {
       let url = null;
-      if (!/^shell:/i.test(p)) {
+      if (/^shell:/i.test(p)) {
+        // UWP는 셸 아이콘이 없다 — 패키지 매니페스트의 로고를 platform.extractIcons가 읽는다(D-42). 캐시하지 않고 fixGeneric에 넘긴다
+        needExtract.add(p);
+        inflight.delete(p);
+        return null;
+      } else {
         // Windows 시작 메뉴는 .lnk — 그대로 물으면 "바로가기" 그림이 온다. platform이 바로가기의 아이콘 출처(IconLocation → 대상)를 푼다(D-39)
         const src = platform.iconSource(p);
         try {
@@ -64,7 +69,7 @@ export function createIconCache() {
   const fixing = new Map(); // path → Promise<url|null> — 진행 중이거나 끝난 폴백
   async function fixGeneric(list, out) {
     const g = await genericExe();
-    // 리소스에서 뽑아야 하는 것: 셸이 기본 exe 아이콘을 준 exe + one()이 넘긴 인덱스 있는 exe·dll(D-39)
+    // 리소스에서 뽑아야 하는 것: 셸이 기본 exe 아이콘을 준 exe + one()이 넘긴 인덱스 있는 exe·dll(D-39)·UWP(D-42)
     const generic = list.filter((p) => needExtract.has(p) || (g && out[p] === g && /\.exe$/i.test(platform.iconSource(p).file)));
     if (!generic.length) return 0;
     const fresh = generic.filter((p) => !fixing.has(p));
@@ -111,8 +116,8 @@ export function createIconCache() {
       }
       const fixed = await fixGeneric(list, out);
       const got = Object.values(out).filter(Boolean).length;
-      // 못 받은 것 중 UWP(shell:)가 아닌 것의 이름 — 실측용. 여기 남는 것은 폴백까지 실패해 글자 상자로 가는 항목이다
-      const missing = list.filter((p) => !out[p] && !/^shell:/i.test(p)).map((p) => path.basename(p));
+      // 못 받은 것의 이름 — 실측용. 여기 남는 것은 폴백까지 실패해 글자 상자로 가는 항목이다(UWP도 D-42부터 셈에 든다)
+      const missing = list.filter((p) => !out[p]).map((p) => path.basename(p));
       return { total: list.length, got, fixed, missing, ms: Math.round(performance.now() - t0) };
     },
     size: () => cache.size,

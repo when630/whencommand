@@ -7,7 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile, spawn } from 'node:child_process';
-import { nativeImage, shell } from 'electron';
+import { nativeImage, nativeTheme, shell } from 'electron';
+import { pickLogo } from './win32-logo.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -70,35 +71,61 @@ export default {
 
   // 설치된 앱 목록(LNCH-03) — 시작 메뉴 .lnk와 UWP(Get-StartApps) **둘 다** 본다. 하나만 보면 반쪽이다.
   // 실측 #9(2026-09-21): .lnk 105 + UWP 42 → 137. 스토어 앱 42개는 .lnk에 없다.
+  // 이름은 **셸이 보여 주는 이름**이다(D-42, 실측 #12) — Windows 기본 도구는 파일이 `Command Prompt.lnk`·`services.lnk`이고 한국어 이름은
+  // 폴더의 desktop.ini가 붙인다. 파일 이름을 쓰면 "명령"·"서비스"로 못 찾는다. 파일 이름은 `alt`로 남겨 "cmd"·"task"로도 걸리게 한다.
+  // PowerShell 한 번에 표시 이름과 Get-StartApps를 함께 받는다. 출력은 반드시 UTF-8로 못 박는다 — 안 그러면 cp949로 나와
+  // 한글 이름(계산기·설정·메모장…)이 전부 U+FFFD가 되어 어떤 질의로도 안 걸린다(함정 #10과 같은 뿌리, 0.1.12까지의 결함)
   async listApps() {
-    const out = new Map();
+    const roots = [process.env.ProgramData, process.env.APPDATA].filter(Boolean).map((b) => path.join(b, 'Microsoft', 'Windows', 'Start Menu', 'Programs'));
+    const lnks = [];
     const walk = (dir) => {
       let entries;
       try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
       for (const e of entries) {
         const p = path.join(dir, e.name);
         if (e.isDirectory()) walk(p);
-        else if (/\.lnk$/i.test(e.name)) {
-          const name = e.name.replace(/\.lnk$/i, '');
-          if (/uninstall|제거|readme|help/i.test(name)) continue;
-          out.set(name.toLowerCase(), { name, path: p, id: null });
-        }
+        else if (/\.lnk$/i.test(e.name)) lnks.push(p);
       }
     };
-    for (const base of [process.env.ProgramData, process.env.APPDATA]) {
-      if (base) walk(path.join(base, 'Microsoft', 'Windows', 'Start Menu', 'Programs'));
-    }
+    for (const r of roots) walk(r);
+    let shown = new Map(); // .lnk 경로(소문자) → 셸 표시 이름
+    let start = [];
     try {
+      const script = [
+        '[Console]::OutputEncoding = [Text.Encoding]::UTF8',
+        '$sh = New-Object -ComObject Shell.Application',
+        '$names = @{}',
+        "foreach ($root in $env:WC_START_ROOTS.Split('|')) {",
+        '  $dirs = @{}',
+        '  Get-ChildItem -LiteralPath $root -Recurse -Filter *.lnk -File -ErrorAction SilentlyContinue | ForEach-Object {',
+        '    $d = $_.DirectoryName; if (-not $dirs.ContainsKey($d)) { $dirs[$d] = $sh.NameSpace($d) }', // 폴더마다 한 번 — 항목마다 NameSpace를 열면 느리다
+        '    try { $names[$_.FullName] = $dirs[$d].ParseName($_.Name).Name } catch {}',
+        '  }',
+        '}',
+        '$apps = @(Get-StartApps | ForEach-Object { @{ n = $_.Name; id = $_.AppID } })',
+        '@{ names = $names; apps = $apps } | ConvertTo-Json -Compress -Depth 4',
+      ].join('\n');
       const json = await new Promise((resolve, reject) =>
-        execFile('powershell', ['-NoProfile', '-NonInteractive', '-Command', 'Get-StartApps | ConvertTo-Json -Compress'], { encoding: 'utf8', timeout: 8000, maxBuffer: 8 * 1024 * 1024, windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(stdout))));
-      const list = JSON.parse(json);
-      for (const a of Array.isArray(list) ? list : [list]) {
-        if (!a?.Name || !a?.AppID) continue;
-        if (!a.AppID.includes('!')) continue; // '!'가 있으면 UWP — 데스크톱 앱은 .lnk로 이미 들어왔다
-        if (!out.has(a.Name.toLowerCase())) out.set(a.Name.toLowerCase(), { name: a.Name, path: `shell:AppsFolder\\${a.AppID}`, id: a.AppID });
-      }
+        execFile('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
+          { encoding: 'utf8', timeout: 15000, maxBuffer: 8 * 1024 * 1024, windowsHide: true, env: { ...process.env, WC_START_ROOTS: roots.join('|') } },
+          (err, stdout) => (err ? reject(err) : resolve(stdout))));
+      const got = JSON.parse(json);
+      shown = new Map(Object.entries(got?.names ?? {}).map(([p, n]) => [p.toLowerCase(), String(n)]));
+      start = Array.isArray(got?.apps) ? got.apps : got?.apps ? [got.apps] : [];
     } catch {
-      // PowerShell이 없거나 막혔으면 .lnk만으로 간다 — 목록이 반쪽이 되지만 앱은 산다
+      // PowerShell이 없거나 막혔으면 .lnk 파일 이름만으로 간다 — 목록이 반쪽이 되지만 앱은 산다
+    }
+    const out = new Map();
+    for (const p of lnks) {
+      const file = path.basename(p).replace(/\.lnk$/i, '');
+      const name = shown.get(p.toLowerCase()) || file;
+      if (/uninstall|제거|readme|help/i.test(file) || /uninstall|제거|readme|help/i.test(name)) continue;
+      out.set(name.toLowerCase(), { name, path: p, id: null, alt: name === file ? null : file });
+    }
+    for (const a of start) {
+      if (!a?.n || !a?.id) continue;
+      if (!a.id.includes('!')) continue; // '!'가 있으면 UWP — 데스크톱 앱은 .lnk로 이미 들어왔다
+      if (!out.has(a.n.toLowerCase())) out.set(a.n.toLowerCase(), { name: a.n, path: `shell:AppsFolder\\${a.id}`, id: a.id });
     }
     return [...out.values()];
   },
@@ -259,8 +286,62 @@ export default {
   // Win32 ExtractIconEx가 파일·인덱스(음수면 리소스 ID)로 32px를 뽑고, 0번이 없으면 .NET ExtractAssociatedIcon으로 한 번 더.
   // PowerShell 한 번에 여러 항목 — 프로세스 시작이 ~400ms라 항목마다 띄우지 않는다. items는 [{ file, index }], 결과는 { `${file}\t${index}`: dataUrl }
   // (실패한 항목은 빠진다). 실패가 앱을 멈추지 않는다
-  extractIcons(items) {
-    const list = items.map((it) => (typeof it === 'string' ? { file: it, index: 0 } : it)).filter((it) => it?.file && /\.(exe|dll)$/i.test(it.file));
+  // UWP(`shell:AppsFolder\<AppID>`)는 getFileIcon이 못 뽑는다 — 패키지 매니페스트의 로고 PNG를 읽는다(uwpLogos, D-42). 같은 결과 모양으로 합친다
+  async extractIcons(items) {
+    const all = items.map((it) => (typeof it === 'string' ? { file: it, index: 0 } : it)).filter((it) => it?.file);
+    const [res, uwp] = await Promise.all([
+      this.extractResourceIcons(all.filter((it) => /\.(exe|dll)$/i.test(it.file))),
+      this.uwpLogos(all.filter((it) => /^shell:AppsFolder\\[^\\]+![^\\]+$/i.test(it.file)).map((it) => it.file)),
+    ]);
+    return { ...res, ...uwp };
+  },
+
+  // UWP 로고(D-42, 실측 #12) — AppID `가족이름!앱Id`의 가족으로 Get-AppxPackage의 설치 폴더를 찾고, AppxManifest.xml의 그 앱
+  // VisualElements `Square44x44Logo`(옛 매니페스트는 Square30x30Logo·SmallLogo)를 읽는다. 그 값은 자원 이름이라 실제 파일은 한정자 붙은 변형이다 —
+  // 고르기는 win32-logo.mjs pickLogo. Get-AppxPackage가 ~800ms라 앱 목록(시작 경로)이 아니라 여기(선워밍의 폴백 한 번)서 부른다.
+  // 결과는 { `${path}\t0`: dataUrl } — extractIcons와 같은 키. 실패한 항목은 빠진다(글자 상자)
+  uwpLogos(paths) {
+    if (!paths.length) return Promise.resolve({});
+    const script = [
+      '[Console]::OutputEncoding = [Text.Encoding]::UTF8',
+      '$pk = @{}; Get-AppxPackage | ForEach-Object { $pk[$_.PackageFamilyName] = $_.InstallLocation }',
+      "foreach ($aid in $env:WC_UWP_IDS.Split('|')) {",
+      '  try {',
+      "    $fam, $id = $aid.Split('!', 2); $loc = $pk[$fam]; if (-not $loc) { continue }",
+      "    $x = [xml](Get-Content -LiteralPath (Join-Path $loc 'AppxManifest.xml') -Raw -Encoding UTF8)",
+      '    $app = @($x.Package.Applications.Application) | Where-Object { $_.Id -eq $id } | Select-Object -First 1',
+      '    $ve = $app.VisualElements', // uap:·m2: 접두사와 상관없이 지역 이름으로 잡힌다
+      '    $l = $ve.Square44x44Logo; if (-not $l) { $l = $ve.Square30x30Logo }; if (-not $l) { $l = $ve.SmallLogo }; if (-not $l) { $l = $x.Package.Properties.Logo }',
+      '    if ($l) { Write-Output ($aid + "`t" + (Join-Path $loc $l)) }',
+      '  } catch {}',
+      '}',
+    ].join('\n');
+    const ids = new Map(paths.map((p) => [p.slice('shell:AppsFolder\\'.length), p]));
+    const dark = nativeTheme.shouldUseDarkColors;
+    return new Promise((resolve) => {
+      execFile('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
+        { encoding: 'utf8', timeout: 15000, maxBuffer: 4 * 1024 * 1024, windowsHide: true, env: { ...process.env, WC_UWP_IDS: [...ids.keys()].join('|') } },
+        (err, stdout) => {
+          const out = {};
+          for (const line of err ? [] : String(stdout).split(/\r?\n/)) {
+            const [aid, logo] = line.split('\t');
+            const p = ids.get(aid);
+            if (!p || !logo) continue;
+            try {
+              const dir = path.dirname(logo.trim());
+              const pick = pickLogo(path.basename(logo.trim()), fs.readdirSync(dir), { dark });
+              if (!pick) continue;
+              const img = nativeImage.createFromPath(path.join(dir, pick));
+              if (img.isEmpty()) continue;
+              out[`${p}\t0`] = (img.getSize().width > 48 ? img.resize({ width: 32, height: 32, quality: 'best' }) : img).toDataURL();
+            } catch {}
+          }
+          resolve(out);
+        });
+    });
+  },
+
+  extractResourceIcons(list) {
     if (!list.length) return Promise.resolve({});
     const script = [
       'Add-Type -AssemblyName System.Drawing',

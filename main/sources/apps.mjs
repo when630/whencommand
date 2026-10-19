@@ -17,9 +17,10 @@ function aliasTable() {
   return mergeAliases(DEFAULT_ALIASES, user);
 }
 
+// alt는 표시 이름과 다른 파일 이름(Windows `Task Manager.lnk` → "작업 관리자", D-42) — 그 자체도 별칭이고, 그 이름에 붙는 별칭도 함께 붙는다
 function withAliases(list) {
   const table = aliasTable();
-  return list.map((a) => ({ ...a, aliases: aliasesFor(a.name, table) }));
+  return list.map((a) => ({ ...a, aliases: [...new Set([...aliasesFor(a.name, table), ...(a.alt ? [a.alt, ...aliasesFor(a.alt, table)] : [])])] }));
 }
 
 const toItem = (a) => ({
