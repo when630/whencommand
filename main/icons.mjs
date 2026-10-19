@@ -26,32 +26,33 @@ export function createIconCache() {
   async function one(p) {
     if (cache.has(p)) return cache.get(p);
     if (inflight.has(p)) return inflight.get(p);
+    // 셸에 묻지 않고 fixGeneric의 추출로 넘기는 것은 약속(inflight)을 만들기 **전에** 가른다. 작업 안에서 await 없이 return하면
+    // inflight.delete가 inflight.set보다 먼저 돌아 끝난 null이 inflight에 영영 남고, 폴백이 needExtract를 지운 뒤의 요청은 그 null을 받았다
+    // (2026-10-19 패키징 smoke에서 UWP 로고 41개 중 16개 — 백그라운드 선워밍과 겹칠 때만, D-42)
+    if (/^shell:/i.test(p)) {
+      // UWP는 셸 아이콘이 없다 — 패키지 매니페스트의 로고를 platform.extractIcons가 읽는다(D-42)
+      needExtract.add(p);
+      return null;
+    }
+    // Windows 시작 메뉴는 .lnk — 그대로 물으면 "바로가기" 그림이 온다. platform이 바로가기의 아이콘 출처(IconLocation → 대상)를 푼다(D-39)
+    const src = platform.iconSource(p);
+    if (!/\.ico$/i.test(src.file) && (src.index !== 0 || /\.dll$/i.test(src.file))) {
+      // 인덱스가 있는 exe·dll은 셸의 파일 아이콘이 아니라 그 리소스다 — getFileIcon은 그걸 못 준다
+      needExtract.add(p);
+      return null;
+    }
     const job = (async () => {
       let url = null;
-      if (/^shell:/i.test(p)) {
-        // UWP는 셸 아이콘이 없다 — 패키지 매니페스트의 로고를 platform.extractIcons가 읽는다(D-42). 캐시하지 않고 fixGeneric에 넘긴다
-        needExtract.add(p);
-        inflight.delete(p);
-        return null;
-      } else {
-        // Windows 시작 메뉴는 .lnk — 그대로 물으면 "바로가기" 그림이 온다. platform이 바로가기의 아이콘 출처(IconLocation → 대상)를 푼다(D-39)
-        const src = platform.iconSource(p);
-        try {
-          if (/\.ico$/i.test(src.file)) {
-            // .ico는 셸을 거치지 않고 직접 읽는다(Git·Chrome 앱). 큰 프레임만 든 것은 32px로 줄인다 — data URL이 수십 KB가 되지 않게
-            const img = nativeImage.createFromPath(src.file);
-            if (!img.isEmpty()) url = (img.getSize().width > 48 ? img.resize({ width: 32, height: 32 }) : img).toDataURL();
-          } else if (src.index !== 0 || /\.dll$/i.test(src.file)) {
-            // 인덱스가 있는 exe·dll은 셸의 파일 아이콘이 아니라 그 리소스다 — getFileIcon은 그걸 못 준다. 캐시하지 않고 fixGeneric에 넘긴다
-            needExtract.add(p);
-            inflight.delete(p);
-            return null;
-          } else {
-            const img = await app.getFileIcon(src.file, { size: 'normal' }); // 32px — 24px 상자에 줄여 그린다
-            if (img && !img.isEmpty()) url = img.toDataURL();
-          }
-        } catch {}
-      }
+      try {
+        if (/\.ico$/i.test(src.file)) {
+          // .ico는 셸을 거치지 않고 직접 읽는다(Git·Chrome 앱). 큰 프레임만 든 것은 32px로 줄인다 — data URL이 수십 KB가 되지 않게
+          const img = nativeImage.createFromPath(src.file);
+          if (!img.isEmpty()) url = (img.getSize().width > 48 ? img.resize({ width: 32, height: 32 }) : img).toDataURL();
+        } else {
+          const img = await app.getFileIcon(src.file, { size: 'normal' }); // 32px — 24px 상자에 줄여 그린다
+          if (img && !img.isEmpty()) url = img.toDataURL();
+        }
+      } catch {}
       cache.set(p, url);
       inflight.delete(p);
       return url;
@@ -70,7 +71,8 @@ export function createIconCache() {
   async function fixGeneric(list, out) {
     const g = await genericExe();
     // 리소스에서 뽑아야 하는 것: 셸이 기본 exe 아이콘을 준 exe + one()이 넘긴 인덱스 있는 exe·dll(D-39)·UWP(D-42)
-    const generic = list.filter((p) => needExtract.has(p) || (g && out[p] === g && /\.exe$/i.test(platform.iconSource(p).file)));
+    // fixing에 이미 있는 것도 — 다른 요청의 폴백이 needExtract를 지운 뒤라도 그 약속(진행 중이든 끝났든)의 값을 받아야 한다
+    const generic = list.filter((p) => needExtract.has(p) || fixing.has(p) || (g && out[p] === g && /\.exe$/i.test(platform.iconSource(p).file)));
     if (!generic.length) return 0;
     const fresh = generic.filter((p) => !fixing.has(p));
     if (fresh.length) {
