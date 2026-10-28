@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-when-page="command-settings">
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; img-src 'self' data:">
@@ -68,10 +68,13 @@ body { user-select: none; color: var(--text-primary); display: flex; flex-direct
 code { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
 kbd { font-family: var(--font-mono); font-size: 10px; background: var(--bg-inset); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; }
 </style>
+<script src="appearance.js"></script>
+<link rel="stylesheet" href="appearance.css">
 </head>
 <body>
 <div class="tb"><img src="../build/tray@2x.png" alt=""><span class="ttl">WHENCOMMAND 설정</span><span class="x" id="close" title="닫기 (Esc)">✕</span></div>
 <div class="body" id="body">
+  <div data-when-appearance></div>
   <div class="sec">단축키</div>
   <div class="opt">
     <div class="l"><div class="n">부르기</div><div class="d" id="hkDesc">어디서든 입력줄을 띄웁니다</div></div>
